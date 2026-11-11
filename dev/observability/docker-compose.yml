@@ -1,0 +1,54 @@
+# Local Prometheus + Loki + Promtail + cAdvisor for developing collectors.
+#   docker compose -f dev/observability/docker-compose.yml up -d
+# Prometheus: http://localhost:9090   Loki: http://localhost:3100
+name: phantom-obs
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports: ["9090:9090"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./rules.yml:/etc/prometheus/rules.yml:ro
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+  loki:
+    image: grafana/loki:3.4.2
+    ports: ["3100:3100"]
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./loki.yml:/etc/loki/loki.yml:ro
+
+  promtail:
+    image: grafana/promtail:3.4.2
+    command: ["-config.file=/etc/promtail/promtail.yml"]
+    volumes:
+      - ./promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on: [loki]
+
+  # Misbehaving workload so there is something to detect.
+  leaky-api:
+    image: python:3.12-alpine
+    container_name: phantom-leaky-api
+    mem_limit: 128m
+    memswap_limit: 128m
+    restart: "no"
+    command:
+      - python
+      - -u
+      - -c
+      - |
+        import time
+        hog = []
+        while True:
+            hog.append(bytearray(2 * 1024 * 1024))
+            print("ERROR: database connection pool exhausted, retrying", flush=True)
+            time.sleep(1)
