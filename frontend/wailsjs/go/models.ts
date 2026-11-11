@@ -1,3 +1,84 @@
+export namespace config {
+	
+	export class Connection {
+	    id: string;
+	    type: string;
+	    name: string;
+	    enabled: boolean;
+	    socket: string;
+	    context: string;
+	    url: string;
+	    query: string;
+	    token: string;
+	    addr: string;
+	    user: string;
+	    keyPath: string;
+	    knownHosts: string;
+	    insecure: boolean;
+	    expectedPorts: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Connection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.type = source["type"];
+	        this.name = source["name"];
+	        this.enabled = source["enabled"];
+	        this.socket = source["socket"];
+	        this.context = source["context"];
+	        this.url = source["url"];
+	        this.query = source["query"];
+	        this.token = source["token"];
+	        this.addr = source["addr"];
+	        this.user = source["user"];
+	        this.keyPath = source["keyPath"];
+	        this.knownHosts = source["knownHosts"];
+	        this.insecure = source["insecure"];
+	        this.expectedPorts = source["expectedPorts"];
+	    }
+	}
+	export class Config {
+	    environment: string;
+	    windowMinutes: number;
+	    ignoreSubjects: string[];
+	    connections: Connection[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Config(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.environment = source["environment"];
+	        this.windowMinutes = source["windowMinutes"];
+	        this.ignoreSubjects = source["ignoreSubjects"];
+	        this.connections = this.convertValues(source["connections"], Connection);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace engine {
 	
 	export class Result {
@@ -38,6 +119,61 @@ export namespace engine {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace main {
+	
+	export class Settings {
+	    config: config.Config;
+	    path: string;
+	    saved: boolean;
+	    notes: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Settings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.config = this.convertValues(source["config"], config.Config);
+	        this.path = source["path"];
+	        this.saved = source["saved"];
+	        this.notes = source["notes"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class TestResult {
+	    ok: boolean;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TestResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.message = source["message"];
+	    }
 	}
 
 }

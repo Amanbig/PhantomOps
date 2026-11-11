@@ -6,10 +6,26 @@ export function DemoIncident() {
   return window['go']['main']['App']['DemoIncident']();
 }
 
+export function DetectServices() {
+  return window['go']['main']['App']['DetectServices']();
+}
+
 export function GetIncident(arg1) {
   return window['go']['main']['App']['GetIncident'](arg1);
 }
 
+export function GetSettings() {
+  return window['go']['main']['App']['GetSettings']();
+}
+
+export function SaveSettings(arg1) {
+  return window['go']['main']['App']['SaveSettings'](arg1);
+}
+
 export function Scan() {
   return window['go']['main']['App']['Scan']();
+}
+
+export function TestConnection(arg1) {
+  return window['go']['main']['App']['TestConnection'](arg1);
 }
