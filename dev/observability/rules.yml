@@ -1,0 +1,10 @@
+groups:
+  - name: phantom-dev
+    rules:
+      - alert: ContainerMemoryNearLimit
+        expr: container_memory_working_set_bytes{name!=""} / (container_spec_memory_limit_bytes{name!=""} > 0) > 0.8
+        for: 5s
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.name }} is above 80% of its memory limit"
