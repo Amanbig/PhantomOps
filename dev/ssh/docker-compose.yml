@@ -1,0 +1,17 @@
+# Disposable OpenSSH server for developing the SSH collector.
+#   ssh-keygen -t ed25519 -N "" -f /tmp/phantom-ssh/id_test
+#   PUBLIC_KEY="$(cat /tmp/phantom-ssh/id_test.pub)" docker compose -f dev/ssh/docker-compose.yml up -d
+# Then:
+#   ssh-keyscan -p 2222 localhost > /tmp/phantom-ssh/known_hosts
+#   go run ./cmd/phantom-collect -source ssh -ssh-host localhost:2222 -ssh-user phantom \
+#     -ssh-key /tmp/phantom-ssh/id_test -ssh-known-hosts /tmp/phantom-ssh/known_hosts
+name: phantom-ssh
+services:
+  sshd:
+    image: linuxserver/openssh-server:latest
+    container_name: phantom-sshd
+    environment:
+      USER_NAME: phantom
+      PUBLIC_KEY: ${PUBLIC_KEY:?set PUBLIC_KEY to an ssh public key}
+      PASSWORD_ACCESS: "false"
+    ports: ["2222:2222"]
