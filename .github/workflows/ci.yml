@@ -1,9 +1,10 @@
 name: CI
 
+# Builds run only when a version tag is pushed (e.g. `git tag v0.1.0 && git push origin v0.1.0`).
+# They do not run on branch pushes or pull requests.
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags: ["v*"]
 
 permissions:
   contents: read
