@@ -1,4 +1,8 @@
 :root {
+    /* Ask the engine for dark native controls (dropdown lists, checkboxes,
+       scrollbars). WebKitGTK otherwise uses the light system GTK theme. */
+    color-scheme: dark;
+    accent-color: #a78bfa;
     --bg: #0e1118;
     --panel: #161b26;
     --panel-2: #1c2230;
@@ -145,7 +149,18 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .event-cited .event-marker span { background: var(--accent); color: #12101c; }
 .rules-view { margin: 8px 0; font-size: 13px; color: var(--muted); }
 .rules-view summary { cursor: pointer; }
-select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 11px; font: inherit; font-size: 14px; }
+/* Fully custom select: native rendering ignores background colours in
+   WebKitGTK and showed light text on a light box. */
+select {
+    -webkit-appearance: none; appearance: none;
+    background-color: var(--bg);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%238b93a7' stroke-width='2'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    border: 1px solid var(--border); color: var(--text); border-radius: 8px;
+    padding: 9px 36px 9px 11px; font: inherit; font-size: 14px; cursor: pointer;
+}
+select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+select option { background-color: var(--panel); color: var(--text); }
 .privacy { font-size: 13px; padding: 8px 12px; border-radius: 8px; margin: 4px 0 12px; border: 1px solid var(--border); }
 .privacy-local { color: #7be0a4; border-color: #2f6b49; }
 .privacy-remote { color: var(--warning); border-color: var(--warning); }
