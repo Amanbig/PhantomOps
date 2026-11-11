@@ -32,6 +32,7 @@ func analyze(occ []occurrence) finding {
 		startFailure,
 		memoryExhaustion,
 		dependencyExhaustion,
+		unhealthyService,
 		crashLoop,
 		hostPressure,
 	}
@@ -106,6 +107,11 @@ func isCrash(e model.Event) bool {
 	return isSymptom(e) && titleIn(e, "CrashLoopBackOff", "Task gave up restarting", "Container restarted",
 		"Container crashed", "Task restarting", "Container terminated", "Task exited") ||
 		(isSymptom(e) && strings.HasPrefix(e.Title, "BackOff"))
+}
+
+func isUnhealthy(e model.Event) bool {
+	return isSymptom(e) && (titleIn(e, "Healthcheck failing", "Allocation unhealthy") ||
+		strings.HasPrefix(e.Title, "Unhealthy"))
 }
 
 // --- subject helpers ------------------------------------------------------
@@ -374,6 +380,42 @@ func dependencyExhaustion(occ []occurrence) finding {
 		f.confidence += 0.05
 	}
 	return f
+}
+
+// unhealthyService: a running service fails its health checks. Error logs
+// from the same service, if present, are added as evidence.
+func unhealthyService(occ []occurrence) finding {
+	o, ok := firstWhere(occ, isUnhealthy)
+	if !ok {
+		return finding{}
+	}
+	name := shortName(o.Subject)
+	f := finding{
+		headline:       "Unhealthy service: " + name,
+		confidence:     0.55,
+		cause:          fmt.Sprintf("%s is running but failing its health checks.%s", name, probeNote(o.Detail)),
+		recommendation: "Run the health check by hand and read the service's recent logs; check whether a dependency it needs is reachable. Capture logs before restarting.",
+		reasons:        []string{fmt.Sprintf("%s at %s on %s.", o.Title, clock(o.Time), o.Subject)},
+	}
+	for _, l := range occ {
+		if l.Kind == model.KindLog && isSymptom(l.Event) && related(l.Subject, o.Subject) {
+			f.confidence += 0.10
+			f.reasons = append(f.reasons, fmt.Sprintf("The service is also logging errors: %s", trunc(l.Detail, 120)))
+			break
+		}
+	}
+	if o.Count > 1 {
+		f.confidence += 0.05
+	}
+	return f
+}
+
+// probeNote extracts the "Last probe output: ..." part of a health event.
+func probeNote(detail string) string {
+	if i := strings.Index(detail, "Last probe output:"); i >= 0 {
+		return " " + trunc(detail[i:], 200)
+	}
+	return ""
 }
 
 func crashLoop(occ []occurrence) finding {

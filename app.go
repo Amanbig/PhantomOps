@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"PhantomOps/internal/config"
-	"PhantomOps/internal/demo"
 	"PhantomOps/internal/engine"
 	"PhantomOps/internal/model"
 )
@@ -145,11 +144,6 @@ func (a *App) Scan() engine.Result {
 	a.last = res
 	a.mu.Unlock()
 	return res
-}
-
-// DemoIncident returns the illustrative Incident #0042.
-func (a *App) DemoIncident() model.Incident {
-	return demo.Incident42()
 }
 
 // GetIncident returns an incident from the last scan by ID.

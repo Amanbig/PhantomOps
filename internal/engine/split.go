@@ -9,7 +9,7 @@ import (
 // isRootSignal marks events that are a failure in their own right (as opposed
 // to a downstream symptom such as upstream 5xx errors).
 func isRootSignal(e model.Event) bool {
-	return isStartFailure(e) || isOOM(e) || isCrash(e) || isMemoryPressure(e) || isDepExhaustion(e) ||
+	return isStartFailure(e) || isOOM(e) || isCrash(e) || isUnhealthy(e) || isMemoryPressure(e) || isDepExhaustion(e) ||
 		(e.Source == model.SourceSSH && isSymptom(e))
 }
 

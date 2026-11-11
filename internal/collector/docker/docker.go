@@ -104,13 +104,15 @@ func (c *Collector) collectContainer(ctx context.Context, id string, since time.
 				"Container crashed", fmt.Sprintf("%s exited with code %d%s.", name, in.State.ExitCode, exitHint(in.State.ExitCode))))
 		}
 	}
-	if in.State.Health != nil && in.State.Health.Status == "unhealthy" {
-		out = append(out, ev(c.now(), model.KindDegraded, model.SeverityCritical,
-			"Healthcheck failing", name+" is reported unhealthy."))
-	}
-
 	if !in.State.Running {
 		return out, nil
+	}
+
+	// Health status is only meaningful while running: a stopped container
+	// keeps whatever status it had when it exited.
+	if h := in.State.Health; h != nil && h.Status == "unhealthy" {
+		out = append(out, ev(c.now(), model.KindDegraded, model.SeverityCritical,
+			"Healthcheck failing", healthDetail(name, h.FailingStreak, lastProbeOutput(h.Log))))
 	}
 
 	var st containerStats
@@ -204,4 +206,31 @@ func truncateAll(in []string, n int) []string {
 		out[i] = s
 	}
 	return out
+}
+
+type probeLog = []struct {
+	ExitCode int    `json:"ExitCode"`
+	Output   string `json:"Output"`
+}
+
+// lastProbeOutput returns the output of the most recent failing probe.
+func lastProbeOutput(log probeLog) string {
+	for i := len(log) - 1; i >= 0; i-- {
+		if log[i].ExitCode != 0 {
+			return strings.TrimSpace(log[i].Output)
+		}
+	}
+	return ""
+}
+
+func healthDetail(name string, streak int, output string) string {
+	d := name + " is reported unhealthy"
+	if streak > 0 {
+		d += fmt.Sprintf(" (%d consecutive failed check(s))", streak)
+	}
+	d += "."
+	if output != "" {
+		d += " Last probe output: " + truncateAll([]string{output}, 200)[0]
+	}
+	return d
 }
