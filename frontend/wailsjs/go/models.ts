@@ -20,6 +20,18 @@ export namespace config {
 	        this.apiKey = source["apiKey"];
 	    }
 	}
+	export class RemediationConfig {
+	    enabled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new RemediationConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	    }
+	}
 	export class Connection {
 	    id: string;
 	    type: string;
@@ -66,6 +78,7 @@ export namespace config {
 	    ignoreSubjects: string[];
 	    connections: Connection[];
 	    ai: AIConfig;
+	    remediation: RemediationConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -78,6 +91,7 @@ export namespace config {
 	        this.ignoreSubjects = source["ignoreSubjects"];
 	        this.connections = this.convertValues(source["connections"], Connection);
 	        this.ai = this.convertValues(source["ai"], AIConfig);
+	        this.remediation = this.convertValues(source["remediation"], RemediationConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -98,6 +112,7 @@ export namespace config {
 		    return a;
 		}
 	}
+	
 
 }
 
@@ -165,6 +180,44 @@ export namespace main {
 	        this.remote = source["remote"];
 	    }
 	}
+	export class RollbackPreview {
+	    token: string;
+	    incidentId: string;
+	    plan: remediate.Plan;
+	    confirmText: string;
+	    expiresIn: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RollbackPreview(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.token = source["token"];
+	        this.incidentId = source["incidentId"];
+	        this.plan = this.convertValues(source["plan"], remediate.Plan);
+	        this.confirmText = source["confirmText"];
+	        this.expiresIn = source["expiresIn"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Settings {
 	    config: config.Config;
 	    path: string;
@@ -229,6 +282,7 @@ export namespace model {
 	    title: string;
 	    detail: string;
 	    subject: string;
+	    origin: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Event(source);
@@ -243,6 +297,7 @@ export namespace model {
 	        this.title = source["title"];
 	        this.detail = source["detail"];
 	        this.subject = source["subject"];
+	        this.origin = source["origin"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -269,6 +324,8 @@ export namespace model {
 	    recommendedAction: string;
 	    action: string;
 	    target: string;
+	    targetSource: string;
+	    targetConnection: string;
 	    reasoning: string[];
 	    source: string;
 	    model: string;
@@ -288,6 +345,8 @@ export namespace model {
 	        this.recommendedAction = source["recommendedAction"];
 	        this.action = source["action"];
 	        this.target = source["target"];
+	        this.targetSource = source["targetSource"];
+	        this.targetConnection = source["targetConnection"];
 	        this.reasoning = source["reasoning"];
 	        this.source = source["source"];
 	        this.model = source["model"];
@@ -341,6 +400,108 @@ export namespace model {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace remediate {
+	
+	export class Entry {
+	    // Go type: time
+	    time: any;
+	    user: string;
+	    phase: string;
+	    incidentId: string;
+	    action: string;
+	    platform: string;
+	    connection: string;
+	    target: string;
+	    command: string;
+	    ok: boolean;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Entry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.time = this.convertValues(source["time"], null);
+	        this.user = source["user"];
+	        this.phase = source["phase"];
+	        this.incidentId = source["incidentId"];
+	        this.action = source["action"];
+	        this.platform = source["platform"];
+	        this.connection = source["connection"];
+	        this.target = source["target"];
+	        this.command = source["command"];
+	        this.ok = source["ok"];
+	        this.message = source["message"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class Plan {
+	    platform: string;
+	    connection: string;
+	    target: string;
+	    feasible: boolean;
+	    reason: string;
+	    current: string;
+	    previous: string;
+	    command: string;
+	    notes: string[];
+	    changes: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Plan(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.platform = source["platform"];
+	        this.connection = source["connection"];
+	        this.target = source["target"];
+	        this.feasible = source["feasible"];
+	        this.reason = source["reason"];
+	        this.current = source["current"];
+	        this.previous = source["previous"];
+	        this.command = source["command"];
+	        this.notes = source["notes"];
+	        this.changes = source["changes"];
+	    }
+	}
+	export class Result {
+	    applied: boolean;
+	    healthy: boolean;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Result(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.applied = source["applied"];
+	        this.healthy = source["healthy"];
+	        this.message = source["message"];
+	    }
 	}
 
 }

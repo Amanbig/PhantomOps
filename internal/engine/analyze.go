@@ -16,6 +16,8 @@ type finding struct {
 	recommendation string
 	action         string // machine-readable remediation id, "" if none
 	target         string
+	targetSource   string
+	targetOrigin   string
 	confidence     float64
 	reasons        []string
 }
@@ -187,23 +189,29 @@ func trunc(s string, n int) string {
 // deploymentRegression: a rollback-able change shortly preceded the first
 // symptoms, which look like resource or dependency exhaustion.
 func deploymentRegression(occ []occurrence) finding {
-	first, ok := firstWhere(occ, isSymptom)
-	if !ok {
-		return finding{}
-	}
-	// Prefer a deployment of a service that shows symptoms; among equals the
-	// latest one wins.
+	// Evaluate each rollback-able change against the symptoms that appear
+	// after it, so an older, already-explained incident in the same time
+	// window cannot hide a newer bad deployment.
 	var deploy *occurrence
+	var first occurrence
 	deployRelated := false
 	for i := range occ {
 		o := occ[i]
-		lead := first.Time.Sub(o.Time)
-		if !isStrongDeploy(o.Event) || lead < -time.Minute || lead > maxDeployLead {
+		if !isStrongDeploy(o.Event) {
+			continue
+		}
+		var sym []occurrence
+		for _, e := range occ {
+			if isSymptom(e.Event) && !e.Time.Before(o.Time.Add(-time.Minute)) {
+				sym = append(sym, e)
+			}
+		}
+		if len(sym) == 0 || sym[0].Time.Sub(o.Time) > maxDeployLead {
 			continue
 		}
 		rel := false
-		for _, s := range occ {
-			if isSymptom(s.Event) && related(s.Subject, o.Subject) {
+		for _, e := range sym {
+			if related(e.Subject, o.Subject) {
 				rel = true
 				break
 			}
@@ -211,12 +219,20 @@ func deploymentRegression(occ []occurrence) finding {
 		// Take the candidate if it is the first, or at least as related as
 		// the current pick (later deployments win ties).
 		if deploy == nil || rel || !deployRelated {
-			deploy, deployRelated = &occ[i], rel
+			deploy, deployRelated, first = &occ[i], rel, sym[0]
 		}
 	}
 	if deploy == nil {
 		return finding{}
 	}
+	// Only events from the deployment onwards can be evidence against it.
+	var after []occurrence
+	for _, e := range occ {
+		if !e.Time.Before(deploy.Time.Add(-time.Minute)) {
+			after = append(after, e)
+		}
+	}
+	occ = after
 	name := shortName(deploy.Subject)
 	lead := first.Time.Sub(deploy.Time).Round(time.Second)
 	if lead < 0 {
@@ -234,9 +250,9 @@ func deploymentRegression(occ []occurrence) finding {
 	}
 
 	f := finding{
-		headline: "Deployment regression suspected: " + name,
-		action:   "rollback", target: deploy.Subject, confidence: 0.45,
-		reasons: []string{fmt.Sprintf("%s was deployed at %s, %s before the first symptom.", deploy.Subject, clock(deploy.Time), lead)},
+		headline:   "Deployment regression suspected: " + name,
+		confidence: 0.45,
+		reasons:    []string{fmt.Sprintf("%s was deployed at %s, %s before the first symptom.", deploy.Subject, clock(deploy.Time), lead)},
 	}
 	if mem {
 		f.confidence += 0.20
@@ -273,6 +289,11 @@ func deploymentRegression(occ []occurrence) finding {
 		f.cause = fmt.Sprintf("Problems began %s after the latest deployment of %s, which is the most likely trigger.", lead, name)
 	}
 	f.recommendation = fmt.Sprintf("Roll back %s to the previous stable deployment and investigate resource and connection lifecycle handling.", name)
+	// Offer the one-click action only where PhantomOps can actually perform it.
+	if deploy.Source == model.SourceKubernetes || deploy.Source == model.SourceNomad {
+		f.action, f.target = "rollback", deploy.Subject
+		f.targetSource, f.targetOrigin = string(deploy.Source), deploy.Origin
+	}
 	return f
 }
 

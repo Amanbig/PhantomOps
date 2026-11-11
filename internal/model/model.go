@@ -49,6 +49,9 @@ type Event struct {
 	Title    string    `json:"title"`
 	Detail   string    `json:"detail"`
 	Subject  string    `json:"subject"` // e.g. container, pod or job name
+	// Origin is the name of the connection that produced the event. It is
+	// stamped by the config layer; empty for replayed or synthetic events.
+	Origin string `json:"origin"`
 }
 
 // Investigation is the "Phantom's investigation" section of an incident.
@@ -61,6 +64,10 @@ type Investigation struct {
 	Action string `json:"action"`
 	// Target is what the action applies to (e.g. "default/api" for a rollback).
 	Target string `json:"target"`
+	// TargetSource is the platform owning Target ("kubernetes" or "nomad") and
+	// TargetConnection the connection that can act on it.
+	TargetSource     string `json:"targetSource"`
+	TargetConnection string `json:"targetConnection"`
 	// Reasoning lists the evidence behind the conclusion, in plain language.
 	Reasoning []string `json:"reasoning"`
 

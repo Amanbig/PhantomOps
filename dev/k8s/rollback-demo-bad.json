@@ -1,0 +1,4 @@
+[
+  {"op": "replace", "path": "/spec/template/spec/containers/0/command",
+   "value": ["python", "-u", "-c", "import time\nhog=[]\nwhile True:\n    hog.append(bytearray(4*1024*1024))\n    print('ERROR: connection pool exhausted', flush=True)\n    time.sleep(1)\n"]}
+]

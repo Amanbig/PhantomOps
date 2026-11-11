@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os/user"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +17,7 @@ import (
 	"PhantomOps/internal/engine"
 	"PhantomOps/internal/llm"
 	"PhantomOps/internal/model"
+	"PhantomOps/internal/remediate"
 )
 
 // aiEvent is the name of the UI event emitted when an AI analysis finishes.
@@ -69,11 +74,29 @@ type App struct {
 	aiCache  map[string]model.Investigation // incident fingerprint -> AI result
 	aiFlight map[string]bool                // fingerprints being analysed
 	aiQueue  chan struct{}                  // serialises model calls (local models are slow)
+
+	approvals *remediate.Approvals
+	audit     *remediate.AuditLog
+	remMu     sync.Mutex // one remediation at a time
+}
+
+// RollbackPreview is what the user reviews before approving a rollback.
+type RollbackPreview struct {
+	Token      string         `json:"token"` // empty when the plan is not feasible
+	IncidentID string         `json:"incidentId"`
+	Plan       remediate.Plan `json:"plan"`
+	// ConfirmText is what the user must type to approve (the workload name).
+	ConfirmText string `json:"confirmText"`
+	ExpiresIn   int    `json:"expiresIn"` // seconds
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{aiCache: map[string]model.Investigation{}, aiFlight: map[string]bool{}, aiQueue: make(chan struct{}, 1)}
+	return &App{
+		aiCache: map[string]model.Investigation{}, aiFlight: map[string]bool{}, aiQueue: make(chan struct{}, 1),
+		approvals: remediate.NewApprovals(),
+		audit:     remediate.NewAuditLog(filepath.Join(filepath.Dir(config.Path()), "audit.log")),
+	}
 }
 
 // startup is called when the app starts. The context is saved
@@ -297,4 +320,145 @@ func (a *App) GetIncident(id string) (model.Incident, error) {
 		}
 	}
 	return model.Incident{}, fmt.Errorf("incident %q not found", id)
+}
+
+// --- remediation -----------------------------------------------------------
+
+// executorFor builds the executor that can act on the incident's target.
+// Callers must hold a.mu.
+func (a *App) executorFor(inv model.Investigation) (remediate.Executor, error) {
+	if inv.TargetConnection == "" {
+		return nil, errors.New("PhantomOps cannot tell which connection owns this deployment (the incident was not produced by a live scan)")
+	}
+	conn, ok := a.cfg.FindConnection(inv.TargetConnection)
+	if !ok {
+		return nil, fmt.Errorf("connection %q is not available or is disabled", inv.TargetConnection)
+	}
+	switch {
+	case conn.Type == config.TypeKubernetes && inv.TargetSource == "kubernetes":
+		return remediate.NewKube(conn.Name, conn.Context), nil
+	case conn.Type == config.TypeNomad && inv.TargetSource == "nomad":
+		return remediate.NewNomad(conn.Name, conn.URL, conn.Token), nil
+	}
+	return nil, fmt.Errorf("connection %q (%s) cannot perform a %s rollback", conn.Name, conn.Type, inv.TargetSource)
+}
+
+func targetName(target string) string {
+	if i := strings.LastIndex(target, "/"); i >= 0 {
+		return target[i+1:]
+	}
+	return target
+}
+
+// PreviewRollback inspects the incident's rollback target and returns exactly
+// what an approval would do. It changes nothing.
+func (a *App) PreviewRollback(incidentID string) (RollbackPreview, error) {
+	a.mu.Lock()
+	enabled := a.cfg.Remediation.Enabled
+	var inv model.Investigation
+	found := false
+	for _, inc := range a.last.Incidents {
+		if inc.ID == incidentID {
+			inv, found = inc.Investigation, true
+		}
+	}
+	var ex remediate.Executor
+	var err error
+	if found && enabled {
+		ex, err = a.executorFor(inv)
+	}
+	a.mu.Unlock()
+
+	switch {
+	case !enabled:
+		return RollbackPreview{}, errors.New("remediation is turned off; enable it under Connections → Remediation")
+	case !found:
+		return RollbackPreview{}, fmt.Errorf("incident %q not found; run a new scan", incidentID)
+	case inv.Action != "rollback" || inv.Target == "":
+		return RollbackPreview{}, errors.New("this incident has no rollback action")
+	case err != nil:
+		return RollbackPreview{}, err
+	}
+
+	ctx, cancel := context.WithTimeout(a.context(), 45*time.Second)
+	defer cancel()
+	plan, err := ex.Plan(ctx, inv.Target)
+	if err != nil {
+		return RollbackPreview{}, err
+	}
+	pv := RollbackPreview{IncidentID: incidentID, Plan: plan, ConfirmText: targetName(inv.Target)}
+	if plan.Feasible {
+		pv.Token = a.approvals.Issue(remediate.Pending{Plan: plan, IncidentID: incidentID, Executor: ex})
+		pv.ExpiresIn = int(remediate.ApprovalTTL.Seconds())
+	}
+	return pv, nil
+}
+
+func currentUser() string {
+	if u, err := user.Current(); err == nil {
+		return u.Username
+	}
+	return "unknown"
+}
+
+// ApproveRollback performs a previously previewed rollback. The caller must
+// present the single-use token from PreviewRollback and type the workload
+// name. The intent is written to the audit log before anything is changed;
+// if that fails, nothing is changed.
+func (a *App) ApproveRollback(token, typed string) (remediate.Result, error) {
+	a.mu.Lock()
+	enabled := a.cfg.Remediation.Enabled
+	a.mu.Unlock()
+	if !enabled {
+		return remediate.Result{}, errors.New("remediation is turned off")
+	}
+	pending, err := a.approvals.Peek(token)
+	if err != nil {
+		return remediate.Result{}, err
+	}
+	if strings.TrimSpace(typed) != targetName(pending.Plan.Target) {
+		return remediate.Result{}, fmt.Errorf("confirmation text does not match; type %q to approve", targetName(pending.Plan.Target))
+	}
+	if !a.remMu.TryLock() {
+		return remediate.Result{}, errors.New("another remediation is already in progress")
+	}
+	defer a.remMu.Unlock()
+	if _, err := a.approvals.Redeem(token); err != nil {
+		return remediate.Result{}, err
+	}
+
+	pl := pending.Plan
+	entry := remediate.Entry{User: currentUser(), IncidentID: pending.IncidentID, Action: "rollback",
+		Platform: pl.Platform, Connection: pl.Connection, Target: pl.Target, Command: pl.Command}
+
+	intent := entry
+	intent.Phase, intent.OK, intent.Message = "approved", true, fmt.Sprintf("%s → %s", pl.Current, pl.Previous)
+	if err := a.audit.Append(intent); err != nil {
+		return remediate.Result{}, fmt.Errorf("refusing to act: the audit log is not writable (%s): %w", a.audit.Path(), err)
+	}
+
+	ctx, cancel := context.WithTimeout(a.context(), 4*time.Minute)
+	defer cancel()
+	res, execErr := pending.Executor.Execute(ctx, pl)
+
+	outcome := entry
+	outcome.Phase = "result"
+	switch {
+	case execErr != nil:
+		outcome.OK, outcome.Message = false, execErr.Error()
+	default:
+		outcome.OK, outcome.Message = res.Applied && res.Healthy, res.Message
+	}
+	if err := a.audit.Append(outcome); err != nil && execErr == nil {
+		res.Message += " (warning: could not write the result to the audit log: " + err.Error() + ")"
+	}
+	return res, execErr
+}
+
+// AuditLog returns the most recent audit entries, newest first.
+func (a *App) AuditLog(limit int) ([]remediate.Entry, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	return a.audit.Recent(limit)
 }

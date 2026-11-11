@@ -1,5 +1,6 @@
 import {Scan} from '../../wailsjs/go/main/App';
 import {EventsOn} from '../../wailsjs/runtime/runtime';
+import {openRollback} from './rollback.js';
 import {esc, clock} from '../util.js';
 
 const SOURCE_LABEL = {
@@ -32,7 +33,7 @@ function renderInvestigation(inc) {
             ${isAI && inv.aiStatus !== 'failed' && inv.aiNote ? `<div class="note">${esc(inv.aiNote)}</div>` : ''}
             ${isAI && inv.ruleBasedRootCause ? `<details class="rules-view"><summary>Rule-based hypothesis</summary><p>${esc(inv.ruleBasedRootCause)}</p></details>` : ''}
             ${inv.action === 'rollback'
-                ? `<button class="btn btn-approve" id="approve" disabled title="Remediation arrives in a later step">Approve rollback${inv.target ? ' · ' + esc(inv.target) : ''}</button>`
+                ? `<button class="btn btn-approve" data-approve="${esc(inc.id)}" title="Review the plan before anything changes">Review rollback${inv.target ? ' · ' + esc(inv.target) : ''}</button>`
                 : ''}
         </section>`;
 }
@@ -137,5 +138,11 @@ export async function mountIncidents(root, {goToConnections}) {
     }
 
     btn.addEventListener('click', scan);
+    content.addEventListener('click', e => {
+        const b = e.target.closest('[data-approve]');
+        if (!b) return;
+        const inc = incidentsById.get(b.dataset.approve);
+        if (inc) openRollback(inc, {onDone: scan, goToConnections});
+    });
     await scan();
 }
