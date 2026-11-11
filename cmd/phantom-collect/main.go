@@ -12,11 +12,13 @@ import (
 
 	"PhantomOps/internal/collector"
 	"PhantomOps/internal/collector/docker"
+	"PhantomOps/internal/collector/kubernetes"
 )
 
 func main() {
-	src := flag.String("source", "docker", "collector to run (docker)")
+	src := flag.String("source", "docker", "collector to run (docker, kubernetes)")
 	socket := flag.String("docker-socket", docker.DefaultSocket, "Docker socket path")
+	kubeCtx := flag.String("kube-context", "", "kubectl context (default: current)")
 	window := flag.Duration("since", time.Hour, "how far back to look")
 	flag.Parse()
 
@@ -24,6 +26,8 @@ func main() {
 	switch *src {
 	case "docker":
 		c = docker.New(*socket)
+	case "kubernetes":
+		c = kubernetes.New(*kubeCtx)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown source %q\n", *src)
 		os.Exit(2)
