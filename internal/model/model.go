@@ -73,7 +73,6 @@ type Incident struct {
 	Environment   string        `json:"environment"`
 	DetectedAt    time.Time     `json:"detectedAt"`
 	Automatic     bool          `json:"automatic"`
-	Demo          bool          `json:"demo"` // true for illustrative data
 	Timeline      []Event       `json:"timeline"`
 	Investigation Investigation `json:"investigation"`
 }

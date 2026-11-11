@@ -84,7 +84,12 @@ type containerInspect struct {
 		StartedAt  string `json:"StartedAt"`
 		FinishedAt string `json:"FinishedAt"`
 		Health     *struct {
-			Status string `json:"Status"`
+			Status        string `json:"Status"`
+			FailingStreak int    `json:"FailingStreak"`
+			Log           []struct {
+				ExitCode int    `json:"ExitCode"`
+				Output   string `json:"Output"`
+			} `json:"Log"`
 		} `json:"Health"`
 	} `json:"State"`
 	Config struct {

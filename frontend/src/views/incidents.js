@@ -1,4 +1,4 @@
-import {Scan, DemoIncident} from '../../wailsjs/go/main/App';
+import {Scan} from '../../wailsjs/go/main/App';
 import {esc, clock} from '../util.js';
 
 const SOURCE_LABEL = {
@@ -32,7 +32,6 @@ function renderIncident(inc) {
                     </div>
                 </div>
                 <div class="badges">
-                    ${inc.demo ? '<span class="badge badge-demo">Demo data</span>' : ''}
                     <span class="badge badge-${esc(inc.severity)}">${esc(inc.severity)}</span>
                 </div>
             </header>
@@ -85,19 +84,16 @@ export async function mountIncidents(root, {goToConnections}) {
                     <div class="empty-icon">🔌</div>
                     <h3>No services connected</h3>
                     <p class="muted">Connect Docker, Kubernetes, Nomad, Prometheus, Loki or an SSH host so Phantom has something to investigate.</p>
-                    <button class="btn" id="goto-conn">Connect services</button>
-                    <button class="btn btn-secondary" id="demo">View demo incident</button></div>`;
+                    <button class="btn" id="goto-conn">Connect services</button></div>`;
             } else {
                 const incidents = res.incidents || [];
                 content.innerHTML = renderStatus(res) + (incidents.length
                     ? incidents.map(renderIncident).join('')
-                    : `<div class="empty"><p class="muted">No incidents detected. Suspiciously quiet…</p>
-                       <button class="btn btn-secondary" id="demo">View demo incident</button></div>`);
+                    : `<div class="empty"><div class="empty-icon">👻</div>
+                       <h3>No incidents detected</h3>
+                       <p class="muted">Suspiciously quiet… Phantom is watching.</p></div>`);
             }
             content.querySelector('#goto-conn')?.addEventListener('click', goToConnections);
-            content.querySelector('#demo')?.addEventListener('click', async () => {
-                content.innerHTML = renderIncident(await DemoIncident());
-            });
         } catch (err) {
             console.error(err);
             content.innerHTML = `<p class="error">Scan failed: ${esc(err)}</p>`;

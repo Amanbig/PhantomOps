@@ -253,7 +253,6 @@ export namespace model {
 	    // Go type: time
 	    detectedAt: any;
 	    automatic: boolean;
-	    demo: boolean;
 	    timeline: Event[];
 	    investigation: Investigation;
 	
@@ -269,7 +268,6 @@ export namespace model {
 	        this.environment = source["environment"];
 	        this.detectedAt = this.convertValues(source["detectedAt"], null);
 	        this.automatic = source["automatic"];
-	        this.demo = source["demo"];
 	        this.timeline = this.convertValues(source["timeline"], Event);
 	        this.investigation = this.convertValues(source["investigation"], Investigation);
 	    }

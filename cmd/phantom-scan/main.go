@@ -1,6 +1,6 @@
 // Command phantom-scan runs the correlation engine once and prints incidents.
 // It scans live infrastructure using the PhantomOps config, or replays a
-// recorded events file with -replay (useful for demos and debugging).
+// recorded events file with -replay (useful for testing and debugging).
 package main
 
 import (

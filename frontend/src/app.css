@@ -34,7 +34,6 @@ html, body { background: var(--bg); color: var(--text); text-align: left; }
 .badge-critical { background: rgba(255, 77, 94, .15); color: var(--critical); border-color: var(--critical); }
 .badge-warning { background: rgba(245, 166, 35, .15); color: var(--warning); border-color: var(--warning); }
 .badge-info { background: rgba(91, 157, 255, .15); color: var(--info); border-color: var(--info); }
-.badge-demo { color: var(--muted); }
 
 .timeline { list-style: none; margin: 24px 0; padding: 0; position: relative; }
 .timeline::before { content: ''; position: absolute; left: 13px; top: 8px; bottom: 8px; width: 2px; background: var(--border); }
