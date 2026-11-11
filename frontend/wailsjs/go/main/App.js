@@ -22,6 +22,10 @@ export function Scan() {
   return window['go']['main']['App']['Scan']();
 }
 
+export function TestAI(arg1) {
+  return window['go']['main']['App']['TestAI'](arg1);
+}
+
 export function TestConnection(arg1) {
   return window['go']['main']['App']['TestConnection'](arg1);
 }

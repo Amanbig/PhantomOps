@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -26,6 +27,7 @@ import (
 	"PhantomOps/internal/collector/prometheus"
 	sshc "PhantomOps/internal/collector/ssh"
 	"PhantomOps/internal/engine"
+	"PhantomOps/internal/llm"
 )
 
 // Connection types.
@@ -69,6 +71,55 @@ type Config struct {
 	WindowMinutes  int          `json:"windowMinutes"`
 	IgnoreSubjects []string     `json:"ignoreSubjects"`
 	Connections    []Connection `json:"connections"`
+	AI             AIConfig     `json:"ai"`
+}
+
+// AIConfig configures the optional LLM investigator. It speaks the
+// OpenAI-compatible chat completions API; Ollama is the "ollama" preset.
+type AIConfig struct {
+	Enabled  bool   `json:"enabled"`
+	Provider string `json:"provider"` // "ollama" or "openai" (any OpenAI-compatible server)
+	BaseURL  string `json:"baseUrl"`  // including version prefix, e.g. http://localhost:11434/v1
+	Model    string `json:"model"`
+	APIKey   string `json:"apiKey"` // secret; optional for local servers
+}
+
+// IsLocalEndpoint reports whether the URL points at this machine or a
+// private network, i.e. incident data would not leave the local network.
+func IsLocalEndpoint(raw string) bool {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "localhost" || strings.HasSuffix(host, ".local") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && (ip.IsLoopback() || ip.IsPrivate())
+}
+
+// Investigator builds the LLM investigator, or nil when AI is disabled.
+func (c Config) Investigator() *llm.Investigator {
+	if !c.AI.Enabled || c.AI.Validate() != nil {
+		return nil
+	}
+	return llm.New(llm.NewClient(c.AI.BaseURL, c.AI.Model, c.AI.APIKey))
+}
+
+// Validate checks the AI settings (only enforced when enabled).
+func (a AIConfig) Validate() error {
+	if !a.Enabled {
+		return nil
+	}
+	u, err := url.Parse(strings.TrimSpace(a.BaseURL))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return errors.New("AI: base URL must be a valid http(s) address, e.g. http://localhost:11434/v1")
+	}
+	if strings.TrimSpace(a.Model) == "" {
+		return errors.New("AI: model is required")
+	}
+	return nil
 }
 
 // Path returns the config file location.
@@ -170,6 +221,12 @@ func (c *Config) Normalize() {
 		}
 	}
 	c.IgnoreSubjects = ignore
+	c.AI.BaseURL = strings.TrimSpace(c.AI.BaseURL)
+	c.AI.Model = strings.TrimSpace(c.AI.Model)
+	c.AI.APIKey = strings.TrimSpace(c.AI.APIKey)
+	if c.AI.Provider == "" {
+		c.AI.Provider = "ollama"
+	}
 	for i := range c.Connections {
 		cn := &c.Connections[i]
 		if cn.ID == "" {
@@ -191,6 +248,9 @@ func (c Config) Validate() error {
 	var problems []string
 	if c.WindowMinutes < 0 || c.WindowMinutes > 24*60 {
 		problems = append(problems, "window must be between 1 and 1440 minutes")
+	}
+	if err := c.AI.Validate(); err != nil {
+		problems = append(problems, err.Error())
 	}
 	seen := map[string]bool{}
 	names := map[string]bool{}
@@ -324,12 +384,18 @@ func (c Config) Redacted() Config {
 			out.Connections[i].Token = SecretMask
 		}
 	}
+	if out.AI.APIKey != "" {
+		out.AI.APIKey = SecretMask
+	}
 	return out
 }
 
 // RestoreSecrets replaces masked secrets in c with the values from old
 // (matched by connection ID). Masks with no match are cleared.
 func (c *Config) RestoreSecrets(old Config) {
+	if c.AI.APIKey == SecretMask {
+		c.AI.APIKey = old.AI.APIKey
+	}
 	for i := range c.Connections {
 		cn := &c.Connections[i]
 		if cn.Token != SecretMask {

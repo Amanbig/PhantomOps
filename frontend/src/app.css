@@ -134,3 +134,18 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .type-card:hover { border-color: var(--accent); }
 .type-icon { font-size: 24px; }
 .empty-icon { font-size: 40px; }
+
+/* ---- AI ---- */
+.badge-ai { background: rgba(167, 139, 250, .15); color: var(--accent); border-color: var(--accent); margin-left: 8px; font-size: 11px; vertical-align: middle; }
+.badge-rules { color: var(--muted); margin-left: 8px; font-size: 11px; vertical-align: middle; }
+.ai-pending { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--accent); margin-bottom: 8px; }
+.spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .9s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.cited { font-size: 12px; color: var(--accent); margin: -2px 0 8px; }
+.event-cited .event-marker span { background: var(--accent); color: #12101c; }
+.rules-view { margin: 8px 0; font-size: 13px; color: var(--muted); }
+.rules-view summary { cursor: pointer; }
+select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 11px; font: inherit; font-size: 14px; }
+.privacy { font-size: 13px; padding: 8px 12px; border-radius: 8px; margin: 4px 0 12px; border: 1px solid var(--border); }
+.privacy-local { color: #7be0a4; border-color: #2f6b49; }
+.privacy-remote { color: var(--warning); border-color: var(--warning); }

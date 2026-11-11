@@ -1,5 +1,25 @@
 export namespace config {
 	
+	export class AIConfig {
+	    enabled: boolean;
+	    provider: string;
+	    baseUrl: string;
+	    model: string;
+	    apiKey: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AIConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.provider = source["provider"];
+	        this.baseUrl = source["baseUrl"];
+	        this.model = source["model"];
+	        this.apiKey = source["apiKey"];
+	    }
+	}
 	export class Connection {
 	    id: string;
 	    type: string;
@@ -45,6 +65,7 @@ export namespace config {
 	    windowMinutes: number;
 	    ignoreSubjects: string[];
 	    connections: Connection[];
+	    ai: AIConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -56,6 +77,7 @@ export namespace config {
 	        this.windowMinutes = source["windowMinutes"];
 	        this.ignoreSubjects = source["ignoreSubjects"];
 	        this.connections = this.convertValues(source["connections"], Connection);
+	        this.ai = this.convertValues(source["ai"], AIConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -125,6 +147,24 @@ export namespace engine {
 
 export namespace main {
 	
+	export class AITestResult {
+	    ok: boolean;
+	    message: string;
+	    models: string[];
+	    remote: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new AITestResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.message = source["message"];
+	        this.models = source["models"];
+	        this.remote = source["remote"];
+	    }
+	}
 	export class Settings {
 	    config: config.Config;
 	    path: string;
@@ -230,6 +270,12 @@ export namespace model {
 	    action: string;
 	    target: string;
 	    reasoning: string[];
+	    source: string;
+	    model: string;
+	    aiStatus: string;
+	    aiNote: string;
+	    citedEvents: number[];
+	    ruleBasedRootCause: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Investigation(source);
@@ -243,6 +289,12 @@ export namespace model {
 	        this.action = source["action"];
 	        this.target = source["target"];
 	        this.reasoning = source["reasoning"];
+	        this.source = source["source"];
+	        this.model = source["model"];
+	        this.aiStatus = source["aiStatus"];
+	        this.aiNote = source["aiNote"];
+	        this.citedEvents = source["citedEvents"];
+	        this.ruleBasedRootCause = source["ruleBasedRootCause"];
 	    }
 	}
 	export class Incident {
