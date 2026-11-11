@@ -1,19 +1,35 @@
-# README
+# 👻 PhantomOps
 
-## About
+Your infrastructure is haunted. Find out what's killing it.
 
-This is the official Wails Vanilla template.
+PhantomOps connects to Docker, Kubernetes, Nomad, Prometheus, Loki and SSH hosts, correlates what it
+sees into incident timelines, and proposes a root cause.
 
-You can configure the project by editing `wails.json`. More information about the project settings can be found
-here: https://wails.io/docs/reference/project-config
+## Configuration
 
-## Live Development
+Settings live in `$PHANTOM_CONFIG` or `<user config dir>/phantomops/config.json`
+(`~/.config/phantomops/config.json` on Linux). See `dev/config.example.json`.
+Without a file, Docker and Kubernetes (`kubectl`) are auto-detected and everything else is off.
 
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
+## Try it without the GUI
 
-## Building
+```sh
+# Analyze a recorded scenario (Incident #0042-style)
+go run ./cmd/phantom-scan -replay dev/scenarios/incident-0042.json
 
-To build a redistributable, production mode package, use `wails build`.
+# Scan live infrastructure using your config
+go run ./cmd/phantom-scan
+
+# Run a single collector and print its raw events
+go run ./cmd/phantom-collect -source docker
+```
+
+`dev/` contains Docker Compose stacks and manifests (leaky and broken workloads, Prometheus/Loki,
+Nomad, SSH) for exercising each collector.
+
+## Development
+
+```sh
+wails dev     # live development
+wails build   # production build
+```

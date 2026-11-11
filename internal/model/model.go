@@ -59,6 +59,10 @@ type Investigation struct {
 	// Action is a machine-readable remediation id (e.g. "rollback"),
 	// empty when nothing can be automated.
 	Action string `json:"action"`
+	// Target is what the action applies to (e.g. "default/api" for a rollback).
+	Target string `json:"target"`
+	// Reasoning lists the evidence behind the conclusion, in plain language.
+	Reasoning []string `json:"reasoning"`
 }
 
 // Incident groups correlated events into a timeline.

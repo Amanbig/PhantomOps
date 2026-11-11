@@ -16,7 +16,7 @@ html, body { background: var(--bg); color: var(--text); text-align: left; }
 
 .shell { max-width: 880px; margin: 0 auto; padding: 0 24px 48px; }
 
-.topbar { display: flex; flex-direction: column; gap: 4px; padding: 28px 0 20px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 28px 0 20px; }
 .brand { font-size: 22px; font-weight: 700; letter-spacing: .3px; }
 .tagline { color: var(--muted); font-size: 14px; }
 
@@ -59,3 +59,13 @@ html, body { background: var(--bg); color: var(--text); text-align: left; }
 
 .btn { background: var(--accent); color: #12101c; border: 0; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer; margin-top: 8px; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.incident + .incident { margin-top: 20px; }
+.status { color: var(--muted); font-size: 13px; margin-bottom: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip-ok { color: #5fd38d; border-color: #2f6b49; }
+.chip-bad { color: var(--critical); border-color: var(--critical); }
+.note { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.note-bad { color: var(--critical); }
+.reasoning { margin: 4px 0 8px; padding-left: 20px; line-height: 1.5; color: var(--text); }
+.empty { text-align: center; padding: 48px 0; }
+.btn-secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }

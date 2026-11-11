@@ -1,0 +1,18 @@
+{
+  "environment": "production",
+  "windowMinutes": 30,
+  "ignoreSubjects": ["phantom-obs"],
+  "docker": { "socket": "/var/run/docker.sock" },
+  "kubernetes": { "context": "" },
+  "prometheus": { "url": "http://localhost:9090" },
+  "loki": { "url": "http://localhost:3100" },
+  "nomad": { "url": "http://localhost:4646", "token": "" },
+  "ssh": [
+    {
+      "addr": "web-01.example.com:22",
+      "user": "ops",
+      "keyPath": "/home/you/.ssh/id_ed25519",
+      "expectedPorts": [80, 443]
+    }
+  ]
+}
