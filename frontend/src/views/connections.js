@@ -1,4 +1,4 @@
-import {GetSettings, SaveSettings, TestConnection, DetectServices} from '../../wailsjs/go/main/App';
+import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI} from '../../wailsjs/go/main/App';
 import {esc} from '../util.js';
 
 // Describes each connectable service and the form fields it needs.
@@ -56,7 +56,20 @@ const TYPES = {
 
 const DEFAULT_COUNT_HINT = 'Add a service to start investigating.';
 
-let state = {settings: null, detected: null, health: {}, form: null, error: ''};
+const AI_PRESETS = {
+    ollama: {label: 'Ollama (local)', url: 'http://localhost:11434/v1', keyHelp: 'Not needed for a local Ollama.'},
+    openai: {label: 'OpenAI-compatible API', url: 'https://api.openai.com/v1', keyHelp: 'Sent as a Bearer token.'},
+};
+
+function isLocalUrl(u) {
+    try {
+        const h = new URL(u).hostname;
+        return h === 'localhost' || h.endsWith('.local') || h === '::1' || h === '[::1]' ||
+            /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+    } catch { return false; }
+}
+
+let state = {settings: null, detected: null, health: {}, form: null, error: '', aiTest: null, aiModels: []};
 let root;
 
 export async function mountConnections(el) {
@@ -142,6 +155,7 @@ function render() {
                 <div class="empty-icon">🔌</div><h3>No connections yet</h3>
                 <p class="muted">${DEFAULT_COUNT_HINT}</p></div>`}
         </div>
+        ${renderAI(config.ai || {})}
         ${renderGeneral(config)}
         <p class="muted small">Config file: <code>${esc(path)}</code></p>
         ${state.form ? renderForm() : ''}`;
@@ -182,6 +196,34 @@ function renderDetected(existing) {
         }).join('') + (fresh.length > 1 ? '<button class="btn btn-small" id="add-all">Add all</button>' : '')
         : '<p class="muted">Nothing new found. Everything detected is already connected.</p>'}
         </div>`;
+}
+
+function renderAI(ai) {
+    const provider = ai.provider || 'ollama';
+    const url = ai.baseUrl || AI_PRESETS[provider].url;
+    const local = isLocalUrl(url);
+    return `<div class="panel" id="ai-panel">
+        <div class="panel-head"><strong>🤖 AI investigator</strong>
+            <label class="check" style="margin:0"><input type="checkbox" id="ai-enabled" ${ai.enabled ? 'checked' : ''}> Enabled</label></div>
+        <p class="muted small" style="margin-top:0">A language model double-checks Phantom's rule-based diagnosis. Its answer must cite real timeline events and may only mention services that appear in your data. It can never trigger actions on its own. Off by default.</p>
+        <div class="form-grid">
+            <label>Provider<select id="ai-provider">${Object.entries(AI_PRESETS).map(([k, p]) =>
+                `<option value="${k}" ${k === provider ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select></label>
+            <label>Model<input id="ai-model" list="ai-models" value="${esc(ai.model || '')}" placeholder="llama3.2">
+                <datalist id="ai-models">${state.aiModels.map(m => `<option value="${esc(m)}">`).join('')}</datalist></label>
+            <label class="span2">Base URL<input id="ai-url" value="${esc(url)}" placeholder="${esc(AI_PRESETS[provider].url)}"></label>
+            <label class="span2">API key<input id="ai-key" type="password" value="${esc(ai.apiKey || '')}" placeholder="(optional)">
+                <span class="muted small">${esc(AI_PRESETS[provider].keyHelp)} Stored locally in the config file (owner-only permissions).</span></label>
+        </div>
+        <div class="privacy ${local ? 'privacy-local' : 'privacy-remote'}" id="ai-privacy">
+            ${local ? '✅ Local endpoint: incident data stays on your machine or network.'
+                    : '⚠ Remote endpoint: incident timelines (service names, event details and log excerpts) will be sent to this server.'}</div>
+        ${state.aiTest ? `<div class="alert ${state.aiTest.ok ? 'alert-ok' : 'alert-bad'}">${esc(state.aiTest.message)}</div>` : ''}
+        <div class="toolbar-actions">
+            <button class="btn btn-small btn-secondary" id="ai-test">Test &amp; load models</button>
+            <button class="btn btn-small" id="ai-save">Save AI settings</button>
+        </div>
+    </div>`;
 }
 
 function renderGeneral(config) {
@@ -310,6 +352,44 @@ function bind() {
             delete state.health[id];
             persist(cfg, 'Connection deleted');
         });
+    });
+
+    // AI panel
+    const readAI = () => ({
+        enabled: $('#ai-enabled').checked, provider: $('#ai-provider').value, baseUrl: $('#ai-url').value.trim(),
+        model: $('#ai-model').value.trim(), apiKey: $('#ai-key').value,
+    });
+    $('#ai-provider')?.addEventListener('change', e => {
+        const urlEl = $('#ai-url');
+        const known = Object.values(AI_PRESETS).map(p => p.url);
+        if (!urlEl.value.trim() || known.includes(urlEl.value.trim())) urlEl.value = AI_PRESETS[e.target.value].url;
+        state.aiTest = null;
+        const cfg = cloneConfig(); cfg.ai = {...readAI()}; state.settings.config = cfg;
+        render();
+    });
+    $('#ai-url')?.addEventListener('input', e => {
+        const local = isLocalUrl(e.target.value);
+        const el = $('#ai-privacy');
+        el.className = 'privacy ' + (local ? 'privacy-local' : 'privacy-remote');
+        el.textContent = local ? '✅ Local endpoint: incident data stays on your machine or network.'
+            : '⚠ Remote endpoint: incident timelines (service names, event details and log excerpts) will be sent to this server.';
+    });
+    $('#ai-test')?.addEventListener('click', async e => {
+        e.target.disabled = true; e.target.textContent = 'Testing…';
+        const res = await TestAI(readAI());
+        state.aiTest = res;
+        state.aiModels = res.models || [];
+        const cfg = cloneConfig(); cfg.ai = {...readAI()}; state.settings.config = cfg;
+        render();
+    });
+    $('#ai-save')?.addEventListener('click', async () => {
+        const ai = readAI();
+        if (ai.enabled && !isLocalUrl(ai.baseUrl) &&
+            !confirm(`Incident data (service names, event details, log excerpts) will be sent to ${new URL(ai.baseUrl).host}. Continue?`)) return;
+        const cfg = cloneConfig();
+        cfg.ai = ai;
+        state.aiTest = null;
+        persist(cfg, 'AI settings saved');
     });
 
     $('#save-general')?.addEventListener('click', () => {

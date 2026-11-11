@@ -15,4 +15,6 @@ export function SaveSettings(arg1:config.Config):Promise<void>;
 
 export function Scan():Promise<engine.Result>;
 
+export function TestAI(arg1:config.AIConfig):Promise<main.AITestResult>;
+
 export function TestConnection(arg1:config.Connection):Promise<main.TestResult>;

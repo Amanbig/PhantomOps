@@ -63,6 +63,19 @@ type Investigation struct {
 	Target string `json:"target"`
 	// Reasoning lists the evidence behind the conclusion, in plain language.
 	Reasoning []string `json:"reasoning"`
+
+	// Source is "rules" (deterministic engine) or "ai" (LLM-refined).
+	Source string `json:"source"`
+	// Model is the LLM that produced an "ai" investigation.
+	Model string `json:"model"`
+	// AIStatus is "" (AI off), "pending" (analysis running) or "failed".
+	AIStatus string `json:"aiStatus"`
+	// AINote explains an AI failure or a safety decision (e.g. a dropped action).
+	AINote string `json:"aiNote"`
+	// CitedEvents are 1-based timeline positions the AI cited as evidence.
+	CitedEvents []int `json:"citedEvents"`
+	// RuleBasedRootCause preserves the engine's hypothesis when AI replaced it.
+	RuleBasedRootCause string `json:"ruleBasedRootCause"`
 }
 
 // Incident groups correlated events into a timeline.
