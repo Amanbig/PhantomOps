@@ -6,6 +6,7 @@
 package config
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -28,6 +29,7 @@ import (
 	sshc "PhantomOps/internal/collector/ssh"
 	"PhantomOps/internal/engine"
 	"PhantomOps/internal/llm"
+	"PhantomOps/internal/model"
 )
 
 // Connection types.
@@ -67,11 +69,28 @@ type Connection struct {
 
 // Config is the on-disk settings document.
 type Config struct {
-	Environment    string       `json:"environment"`
-	WindowMinutes  int          `json:"windowMinutes"`
-	IgnoreSubjects []string     `json:"ignoreSubjects"`
-	Connections    []Connection `json:"connections"`
-	AI             AIConfig     `json:"ai"`
+	Environment    string            `json:"environment"`
+	WindowMinutes  int               `json:"windowMinutes"`
+	IgnoreSubjects []string          `json:"ignoreSubjects"`
+	Connections    []Connection      `json:"connections"`
+	AI             AIConfig          `json:"ai"`
+	Remediation    RemediationConfig `json:"remediation"`
+}
+
+// RemediationConfig controls whether PhantomOps may change infrastructure.
+// It is off by default: nothing is ever modified until the user opts in.
+type RemediationConfig struct {
+	Enabled bool `json:"enabled"`
+}
+
+// FindConnection returns the enabled connection with the given name.
+func (c Config) FindConnection(name string) (Connection, bool) {
+	for _, cn := range c.Connections {
+		if cn.Enabled && cn.Name == name {
+			return cn, true
+		}
+	}
+	return Connection{}, false
 }
 
 // AIConfig configures the optional LLM investigator. It speaks the
@@ -356,13 +375,22 @@ func (c Config) Collectors() ([]collector.Collector, []string) {
 }
 
 // named overrides a collector's name with the connection's display name so
-// results can be attributed to the right connection in the UI.
+// results can be attributed to the right connection in the UI, and stamps
+// every event with that origin so later actions know which connection owns it.
 type named struct {
 	collector.Collector
 	name string
 }
 
 func (n named) Name() string { return n.name }
+
+func (n named) Collect(ctx context.Context, since time.Time) ([]model.Event, error) {
+	evs, err := n.Collector.Collect(ctx, since)
+	for i := range evs {
+		evs[i].Origin = n.name
+	}
+	return evs, err
+}
 
 // Engine builds a ready-to-use correlation engine from the config.
 func (c Config) Engine() (*engine.Engine, []string) {

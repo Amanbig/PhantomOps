@@ -178,18 +178,29 @@ type occurrence struct {
 	Count int
 }
 
-// collapse merges repeats of the same (source, title, subject), keeping the
+// collapseGap is the longest pause between two repeats of the same event that
+// still counts as one ongoing occurrence. A longer pause (for example a new
+// deployment followed by fresh failures) starts a new entry, so recurrences
+// stay visible on the timeline and in the analysis.
+const collapseGap = 3 * time.Minute
+
+// collapse merges runs of the same (source, title, subject), keeping the
 // first occurrence's time.
 func collapse(events []model.Event) []occurrence {
-	idx := map[string]int{}
+	type run struct {
+		idx  int
+		last time.Time
+	}
+	runs := map[string]*run{}
 	var out []occurrence
 	for _, ev := range events {
 		k := string(ev.Source) + "|" + ev.Title + "|" + ev.Subject
-		if i, ok := idx[k]; ok {
-			out[i].Count++
+		if r, ok := runs[k]; ok && ev.Time.Sub(r.last) <= collapseGap {
+			out[r.idx].Count++
+			r.last = ev.Time
 			continue
 		}
-		idx[k] = len(out)
+		runs[k] = &run{idx: len(out), last: ev.Time}
 		out = append(out, occurrence{Event: ev, Count: 1})
 	}
 	return out
@@ -241,6 +252,8 @@ func (e *Engine) buildIncident(events []model.Event) (model.Incident, bool) {
 			RecommendedAction: f.recommendation,
 			Action:            f.action,
 			Target:            f.target,
+			TargetSource:      f.targetSource,
+			TargetConnection:  f.targetOrigin,
 			Reasoning:         f.reasons,
 		},
 	}, true

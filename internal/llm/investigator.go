@@ -268,6 +268,7 @@ func (iv *Investigator) assemble(inc model.Incident, events []model.Event, a ans
 			out.AINote = fmt.Sprintf("The rule-based suggestion to %s %s was withdrawn: the AI did not cite the deployment event as evidence.", rules.Action, rules.Target)
 		default:
 			out.Action, out.Target = rules.Action, rules.Target
+			out.TargetSource, out.TargetConnection = rules.TargetSource, rules.TargetConnection
 		}
 	}
 	return out

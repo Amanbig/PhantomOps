@@ -156,6 +156,7 @@ function render() {
                 <p class="muted">${DEFAULT_COUNT_HINT}</p></div>`}
         </div>
         ${renderAI(config.ai || {})}
+        ${renderRemediation(config.remediation || {})}
         ${renderGeneral(config)}
         <p class="muted small">Config file: <code>${esc(path)}</code></p>
         ${state.form ? renderForm() : ''}`;
@@ -224,6 +225,15 @@ function renderAI(ai) {
             <button class="btn btn-small btn-secondary" id="ai-test">Test &amp; load models</button>
             <button class="btn btn-small" id="ai-save">Save AI settings</button>
         </div>
+    </div>`;
+}
+
+function renderRemediation(rem) {
+    return `<div class="panel" id="rem-panel">
+        <div class="panel-head"><strong>🛠 Remediation</strong>
+            <label class="check" style="margin:0"><input type="checkbox" id="rem-enabled" ${rem.enabled ? 'checked' : ''}> Allow rollbacks</label></div>
+        <p class="muted small" style="margin:0 0 8px">When on, an incident that points at a bad Kubernetes or Nomad deployment can be rolled back to its previous revision. Every rollback shows a preview of exactly what changes, needs you to type the workload name, and is recorded on the Activity tab. Never runs automatically. Off by default.</p>
+        <button class="btn btn-small" id="rem-save">Save</button>
     </div>`;
 }
 
@@ -391,6 +401,14 @@ function bind() {
         cfg.ai = ai;
         state.aiTest = null;
         persist(cfg, 'AI settings saved');
+    });
+
+    $('#rem-save')?.addEventListener('click', () => {
+        const enabled = $('#rem-enabled').checked;
+        if (enabled && !confirm('Allow PhantomOps to roll back Kubernetes and Nomad deployments when you approve it? Each rollback still needs your explicit confirmation.')) return;
+        const cfg = cloneConfig();
+        cfg.remediation = {enabled};
+        persist(cfg, enabled ? 'Rollbacks allowed (with confirmation)' : 'Rollbacks disabled');
     });
 
     $('#save-general')?.addEventListener('click', () => {

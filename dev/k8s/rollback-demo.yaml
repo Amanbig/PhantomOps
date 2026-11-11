@@ -1,0 +1,29 @@
+# A deployment with a healthy first revision. Apply, wait until Ready, then break it:
+#   kubectl apply -f dev/k8s/rollback-demo.yaml
+#   kubectl -n phantom-rb rollout status deploy/web
+#   kubectl -n phantom-rb patch deploy/web --type=json -p "$(cat dev/k8s/rollback-demo-bad.json)"
+# PhantomOps should then flag a deployment regression and offer a rollback.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: phantom-rb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: phantom-rb
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: web}
+  template:
+    metadata:
+      labels: {app: web}
+    spec:
+      containers:
+        - name: web
+          image: python:3.12-alpine
+          command: ["python", "-m", "http.server", "8000"]
+          resources:
+            limits: {memory: 64Mi}

@@ -3,16 +3,19 @@ import './app.css';
 
 import {mountIncidents} from './views/incidents.js';
 import {mountConnections} from './views/connections.js';
+import {mountActivity} from './views/activity.js';
 
 const TABS = [
     {id: 'incidents', label: 'Incidents'},
     {id: 'connections', label: 'Connections'},
+    {id: 'activity', label: 'Activity'},
 ];
 
 function show(tab) {
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
     const view = document.getElementById('view');
     if (tab === 'incidents') mountIncidents(view, {goToConnections: () => show('connections')});
+    else if (tab === 'activity') mountActivity(view);
     else mountConnections(view);
 }
 
