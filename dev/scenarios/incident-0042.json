@@ -1,0 +1,92 @@
+[
+  {
+    "time": "2026-11-11T09:00:00Z",
+    "source": "ssh",
+    "kind": "resource",
+    "severity": "warning",
+    "title": "Disk almost full",
+    "detail": "/var (/dev/sda2) is 91% full.",
+    "subject": "web-01"
+  },
+  {
+    "time": "2026-11-11T12:01:00Z",
+    "source": "kubernetes",
+    "kind": "deployment",
+    "severity": "info",
+    "title": "Deployment rollout",
+    "detail": "ReplicaSet \"api-7d9f6c5b8\" has successfully progressed.",
+    "subject": "prod/api"
+  },
+  {
+    "time": "2026-11-11T12:01:05Z",
+    "source": "kubernetes",
+    "kind": "deployment",
+    "severity": "info",
+    "title": "Pod started",
+    "detail": "prod/api-7d9f6c5b8-x2k4q was scheduled and started.",
+    "subject": "prod/api-7d9f6c5b8-x2k4q"
+  },
+  {
+    "time": "2026-11-11T12:01:30Z",
+    "source": "docker",
+    "kind": "other",
+    "severity": "info",
+    "title": "Container stopped",
+    "detail": "old-batch was stopped.",
+    "subject": "old-batch"
+  },
+  {
+    "time": "2026-11-11T12:02:00Z",
+    "source": "prometheus",
+    "kind": "resource",
+    "severity": "warning",
+    "title": "Memory climbing",
+    "detail": "api memory is growing at 2.0 MB/s.",
+    "subject": "api"
+  },
+  {
+    "time": "2026-11-11T12:02:40Z",
+    "source": "prometheus",
+    "kind": "resource",
+    "severity": "warning",
+    "title": "High memory usage",
+    "detail": "api is using 87% of its memory limit.",
+    "subject": "api"
+  },
+  {
+    "time": "2026-11-11T12:03:00Z",
+    "source": "loki",
+    "kind": "log",
+    "severity": "critical",
+    "title": "14 error log line(s)",
+    "detail": "FATAL: remaining connection slots are reserved for non-replication superuser connections (too many connections)",
+    "subject": "api"
+  },
+  {
+    "time": "2026-11-11T12:03:10Z",
+    "source": "loki",
+    "kind": "log",
+    "severity": "warning",
+    "title": "3 error log line(s)",
+    "detail": "level=error msg=\"flush failed\"",
+    "subject": "phantom-obs-loki-1"
+  },
+  {
+    "time": "2026-11-11T12:03:30Z",
+    "source": "prometheus",
+    "kind": "degradation",
+    "severity": "critical",
+    "title": "HTTP 5xx errors",
+    "detail": "nginx is returning 5xx at 4.2 req/s.",
+    "subject": "nginx"
+  },
+  {
+    "time": "2026-11-11T12:03:35Z",
+    "source": "kubernetes",
+    "kind": "other",
+    "severity": "info",
+    "title": "Partial data",
+    "detail": "metrics: metrics API not available",
+    "subject": "collector"
+  }
+]
