@@ -1,17 +1,16 @@
 {
   "environment": "production",
   "windowMinutes": 30,
-  "ignoreSubjects": ["phantom-obs"],
-  "docker": { "socket": "/var/run/docker.sock" },
-  "kubernetes": { "context": "" },
-  "prometheus": { "url": "http://localhost:9090" },
-  "loki": { "url": "http://localhost:3100" },
-  "nomad": { "url": "http://localhost:4646", "token": "" },
-  "ssh": [
+  "ignoreSubjects": ["monitoring", "cadvisor"],
+  "connections": [
+    { "id": "docker-local", "type": "docker", "name": "Local Docker", "enabled": true, "socket": "/var/run/docker.sock" },
+    { "id": "k8s-prod", "type": "kubernetes", "name": "Prod cluster", "enabled": true, "context": "prod" },
+    { "id": "prom", "type": "prometheus", "name": "Prometheus", "enabled": true, "url": "http://localhost:9090" },
+    { "id": "loki", "type": "loki", "name": "Loki", "enabled": true, "url": "http://localhost:3100" },
+    { "id": "nomad", "type": "nomad", "name": "Nomad", "enabled": false, "url": "http://localhost:4646", "token": "" },
     {
-      "addr": "web-01.example.com:22",
-      "user": "ops",
-      "keyPath": "/home/you/.ssh/id_ed25519",
+      "id": "web-01", "type": "ssh", "name": "web-01", "enabled": true,
+      "addr": "web-01.example.com:22", "user": "ops", "keyPath": "/home/you/.ssh/id_ed25519",
       "expectedPorts": [80, 443]
     }
   ]

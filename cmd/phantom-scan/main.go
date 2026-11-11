@@ -25,7 +25,7 @@ func main() {
 	ignore := flag.String("ignore", "", "comma-separated subject substrings to ignore (added to config)")
 	flag.Parse()
 
-	cfg, err := config.Load(*cfgPath)
+	cfg, _, err := config.Load(*cfgPath)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "config:", err)
 		os.Exit(2)

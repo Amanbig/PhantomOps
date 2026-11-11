@@ -5,11 +5,16 @@ Your infrastructure is haunted. Find out what's killing it.
 PhantomOps connects to Docker, Kubernetes, Nomad, Prometheus, Loki and SSH hosts, correlates what it
 sees into incident timelines, and proposes a root cause.
 
-## Configuration
+## Connecting services
 
-Settings live in `$PHANTOM_CONFIG` or `<user config dir>/phantomops/config.json`
-(`~/.config/phantomops/config.json` on Linux). See `dev/config.example.json`.
-Without a file, Docker and Kubernetes (`kubectl`) are auto-detected and everything else is off.
+Open the **Connections** tab to add Docker/Podman, Kubernetes (k3s), Prometheus, Loki, Nomad and SSH hosts.
+Each connection can be tested before saving, enabled/disabled, edited or deleted, and **Detect local
+services** finds the ones running on your machine. Until you save, Docker and Kubernetes (`kubectl`) are
+auto-detected so the app works out of the box.
+
+Settings are stored in `$PHANTOM_CONFIG` or `<user config dir>/phantomops/config.json`
+(`~/.config/phantomops/config.json` on Linux) with owner-only permissions, since it may hold tokens.
+You can also edit it by hand; see `dev/config.example.json`.
 
 ## Try it without the GUI
 

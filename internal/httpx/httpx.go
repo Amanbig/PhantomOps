@@ -4,6 +4,7 @@ package httpx
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,7 +29,12 @@ func GetJSON(ctx context.Context, c *http.Client, base, path string, q url.Value
 	}
 	resp, err := c.Do(req)
 	if err != nil {
-		return err
+		// Drop the full request URL (it can be huge, e.g. a LogQL query).
+		var ue *url.Error
+		if errors.As(err, &ue) {
+			err = ue.Err
+		}
+		return fmt.Errorf("GET %s: %w", path, err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
