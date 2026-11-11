@@ -1,0 +1,54 @@
+# Deliberately broken workloads for exercising the Kubernetes collector.
+#   kubectl apply -f dev/k8s/broken.yaml
+#   kubectl delete namespace phantom-dev
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: phantom-dev
+---
+# Leaks memory past its limit -> OOMKilled -> CrashLoopBackOff
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaky-api
+  namespace: phantom-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: leaky-api}
+  template:
+    metadata:
+      labels: {app: leaky-api}
+    spec:
+      containers:
+        - name: api
+          image: python:3.12-alpine
+          resources:
+            limits: {memory: 64Mi}
+          command: ["python", "-u", "-c"]
+          args:
+            - |
+              import time
+              hog = []
+              while True:
+                  hog.append(bytearray(4 * 1024 * 1024))
+                  print("ERROR: database connection pool exhausted", flush=True)
+                  time.sleep(1)
+---
+# Image does not exist -> ErrImagePull / ImagePullBackOff
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bad-image
+  namespace: phantom-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: bad-image}
+  template:
+    metadata:
+      labels: {app: bad-image}
+    spec:
+      containers:
+        - name: web
+          image: registry.invalid/phantom/does-not-exist:v9
