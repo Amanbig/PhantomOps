@@ -19,6 +19,15 @@ import (
 
 const maxResponseBytes = 2 << 20
 
+// maxOutputTokens bounds generation. The expected answer is a small JSON
+// object; without a cap, a small model can loop on degenerate output for
+// minutes.
+const maxOutputTokens = 900
+
+// ErrTruncated means the model hit the output token limit before finishing,
+// typically because it is looping or rambling.
+var ErrTruncated = errors.New("model output was cut off before it finished (it may be looping); try a larger or more capable model")
+
 // Message is one chat message.
 type Message struct {
 	Role    string `json:"role"`
@@ -124,6 +133,7 @@ type chatRequest struct {
 	Model          string            `json:"model"`
 	Messages       []Message         `json:"messages"`
 	Temperature    float64           `json:"temperature"`
+	MaxTokens      int               `json:"max_tokens"`
 	Stream         bool              `json:"stream"`
 	ResponseFormat map[string]string `json:"response_format,omitempty"`
 }
@@ -132,7 +142,7 @@ type chatRequest struct {
 // JSON output and transparently retries without that hint if the server
 // rejects it.
 func (c *Client) Chat(ctx context.Context, msgs []Message) (string, error) {
-	req := chatRequest{Model: c.model, Messages: msgs, Temperature: 0.1,
+	req := chatRequest{Model: c.model, Messages: msgs, Temperature: 0.1, MaxTokens: maxOutputTokens,
 		ResponseFormat: map[string]string{"type": "json_object"}}
 	status, body, err := c.do(ctx, http.MethodPost, "/chat/completions", req)
 	if err != nil {
@@ -149,11 +159,15 @@ func (c *Client) Chat(ctx context.Context, msgs []Message) (string, error) {
 	}
 	var r struct {
 		Choices []struct {
-			Message Message `json:"message"`
+			Message      Message `json:"message"`
+			FinishReason string  `json:"finish_reason"`
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(body, &r); err != nil {
 		return "", fmt.Errorf("decode response: %w", err)
+	}
+	if len(r.Choices) > 0 && r.Choices[0].FinishReason == "length" {
+		return "", ErrTruncated
 	}
 	if len(r.Choices) == 0 || strings.TrimSpace(r.Choices[0].Message.Content) == "" {
 		return "", errors.New("model returned an empty response")
