@@ -1,54 +1,61 @@
-#logo {
-    display: block;
-    width: 50%;
-    height: 50%;
-    margin: auto;
-    padding: 10% 0 0;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-    background-origin: content-box;
+:root {
+    --bg: #0e1118;
+    --panel: #161b26;
+    --panel-2: #1c2230;
+    --border: #2a3142;
+    --text: #e6e9f0;
+    --muted: #8b93a7;
+    --info: #5b9dff;
+    --warning: #f5a623;
+    --critical: #ff4d5e;
+    --accent: #a78bfa;
 }
 
-.result {
-    height: 20px;
-    line-height: 20px;
-    margin: 1.5rem auto;
-}
+html, body { background: var(--bg); color: var(--text); text-align: left; }
+#app { height: auto; min-height: 100vh; text-align: left; }
 
-.input-box .btn {
-    width: 60px;
-    height: 30px;
-    line-height: 30px;
-    border-radius: 3px;
-    border: none;
-    margin: 0 0 0 20px;
-    padding: 0 8px;
-    cursor: pointer;
-}
+.shell { max-width: 880px; margin: 0 auto; padding: 0 24px 48px; }
 
-.input-box .btn:hover {
-    background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
-    color: #333333;
-}
+.topbar { display: flex; flex-direction: column; gap: 4px; padding: 28px 0 20px; }
+.brand { font-size: 22px; font-weight: 700; letter-spacing: .3px; }
+.tagline { color: var(--muted); font-size: 14px; }
 
-.input-box .input {
-    border: none;
-    border-radius: 3px;
-    outline: none;
-    height: 30px;
-    line-height: 30px;
-    padding: 0 10px;
-    background-color: rgba(240, 240, 240, 1);
-    -webkit-font-smoothing: antialiased;
-}
+.muted { color: var(--muted); }
+.error { color: var(--critical); }
 
-.input-box .input:hover {
-    border: none;
-    background-color: rgba(255, 255, 255, 1);
-}
+.incident { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+.incident-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.incident-id { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+.incident h2 { margin: 4px 0; font-size: 24px; }
+.incident-meta { color: var(--muted); font-size: 13px; }
 
-.input-box .input:focus {
-    border: none;
-    background-color: rgba(255, 255, 255, 1);
+.badges { display: flex; gap: 8px; }
+.badge { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: capitalize; border: 1px solid var(--border); }
+.badge-critical { background: rgba(255, 77, 94, .15); color: var(--critical); border-color: var(--critical); }
+.badge-warning { background: rgba(245, 166, 35, .15); color: var(--warning); border-color: var(--warning); }
+.badge-info { background: rgba(91, 157, 255, .15); color: var(--info); border-color: var(--info); }
+.badge-demo { color: var(--muted); }
+
+.timeline { list-style: none; margin: 24px 0; padding: 0; position: relative; }
+.timeline::before { content: ''; position: absolute; left: 13px; top: 8px; bottom: 8px; width: 2px; background: var(--border); }
+.event { display: flex; gap: 14px; padding: 10px 0; position: relative; }
+.event-marker span {
+    display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--panel-2); border: 2px solid var(--info); font-size: 12px; font-weight: 700;
 }
+.sev-warning .event-marker span { border-color: var(--warning); }
+.sev-critical .event-marker span { border-color: var(--critical); }
+.event-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.event-time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+.event-title { font-weight: 700; }
+.event-detail { color: var(--muted); margin-top: 2px; font-size: 14px; }
+.chip { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); }
+
+.investigation { background: var(--panel-2); border: 1px solid var(--accent); border-radius: 10px; padding: 18px 20px; }
+.investigation h3 { margin: 0 0 12px; color: var(--accent); }
+.label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; }
+.investigation p { margin: 4px 0 8px; line-height: 1.5; }
+.confidence { margin-left: 8px; font-size: 12px; color: var(--accent); }
+
+.btn { background: var(--accent); color: #12101c; border: 0; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
