@@ -14,16 +14,19 @@ import (
 	"PhantomOps/internal/collector/docker"
 	"PhantomOps/internal/collector/kubernetes"
 	"PhantomOps/internal/collector/loki"
+	"PhantomOps/internal/collector/nomad"
 	"PhantomOps/internal/collector/prometheus"
 )
 
 func main() {
-	src := flag.String("source", "docker", "collector to run (docker, kubernetes, prometheus, loki)")
+	src := flag.String("source", "docker", "collector to run (docker, kubernetes, prometheus, loki, nomad)")
 	socket := flag.String("docker-socket", docker.DefaultSocket, "Docker socket path")
 	kubeCtx := flag.String("kube-context", "", "kubectl context (default: current)")
 	promURL := flag.String("prometheus-url", "http://localhost:9090", "Prometheus base URL")
 	lokiURL := flag.String("loki-url", "http://localhost:3100", "Loki base URL")
 	lokiQuery := flag.String("loki-query", "", "LogQL query (default: error-ish lines from all services)")
+	nomadURL := flag.String("nomad-url", "http://localhost:4646", "Nomad base URL")
+	nomadToken := flag.String("nomad-token", os.Getenv("NOMAD_TOKEN"), "Nomad ACL token (default: $NOMAD_TOKEN)")
 	window := flag.Duration("since", time.Hour, "how far back to look")
 	flag.Parse()
 
@@ -37,6 +40,8 @@ func main() {
 		c = prometheus.New(*promURL, nil)
 	case "loki":
 		c = loki.New(*lokiURL, *lokiQuery)
+	case "nomad":
+		c = nomad.New(*nomadURL, *nomadToken)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown source %q\n", *src)
 		os.Exit(2)

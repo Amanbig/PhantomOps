@@ -1,0 +1,21 @@
+# Nomad dev agent (single node, in-memory) using the official image.
+# Host networking so the API is on http://localhost:4646 and task ports are
+# reachable; the host Docker socket lets Nomad's docker driver run tasks.
+#   docker compose -f dev/nomad/docker-compose.yml up -d
+#   docker exec phantom-nomad nomad job run -detach /jobs/leaky-api.nomad.hcl
+name: phantom-nomad
+services:
+  nomad:
+    image: hashicorp/nomad:latest
+    container_name: phantom-nomad
+    network_mode: host
+    privileged: true
+    pid: host
+    cgroup: host
+    command: ["agent", "-dev", "-bind=0.0.0.0"]
+    environment:
+      NOMAD_ADDR: http://127.0.0.1:4646
+      NOMAD_SKIP_DOCKER_IMAGE_WARN: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./jobs:/jobs:ro
