@@ -45,7 +45,7 @@ function renderIncident(inc) {
             <div class="event-marker"><span>${i + 1}</span></div>
             <div class="event-body">
                 <div class="event-head">
-                    <span class="event-time">${clock(e.time)}</span>
+                    <span class="event-time" title="UTC">${clock(e.time)} UTC</span>
                     <span class="event-title">${esc(e.title)}</span>
                     <span class="chip">${esc(SOURCE_LABEL[e.source] || e.source)}</span>
                 </div>

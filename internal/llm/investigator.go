@@ -41,10 +41,12 @@ Rules:
 - If the evidence is insufficient or ambiguous, say so and lower your confidence.
 - You may confirm, refine or contradict the preliminary hypothesis.
 - Wrap every service, container, pod, job or host name you mention in backticks, and only names that appear in the timeline.
-- "evidence" lists the timeline event numbers that support your conclusion (at least one).
+- "evidence" lists the timeline event numbers that support your conclusion: between 1 and 5 numbers, each a valid event number. Never list more than 5.
+- "reasoning" has at most 4 short strings.
+- "rollbackRecommended" is true only if reverting the most recent deployment is clearly the right fix according to the timeline; otherwise false.
 
-Respond with a single JSON object and nothing else:
-{"rootCause": string, "confidence": number between 0 and 1, "recommendedAction": string, "evidence": [event numbers], "reasoning": [short strings]}`
+Respond with a single JSON object and nothing else, in exactly this shape (example values):
+{"rootCause": "` + "`worker`" + ` is failing because its data volume filled up; log files grew steadily.", "confidence": 0.7, "recommendedAction": "Free space on the volume and add log rotation for ` + "`worker`" + `.", "evidence": [2], "rollbackRecommended": false, "reasoning": ["Disk usage warning came before the errors (event 2)."]}`
 
 // Refine returns an AI-refined investigation for the incident. It never
 // invents remediation: Action/Target are kept from the rule engine only when
@@ -120,7 +122,7 @@ func buildPrompt(inc model.Incident, events []model.Event) string {
 	for _, r := range inv.Reasoning {
 		fmt.Fprintf(&b, "- %s\n", sanitize(r, 200))
 	}
-	b.WriteString("</preliminary>\n\nDecide the most likely root cause and the best next action.")
+	fmt.Fprintf(&b, "</preliminary>\n\nThe timeline has %d events, numbered 1 to %d. Decide the most likely root cause and the best next action.", len(events), len(events))
 	return b.String()
 }
 
@@ -140,11 +142,34 @@ func buildCorpus(inc model.Incident, events []model.Event) string {
 // --- answer parsing & validation ---------------------------------------
 
 type answer struct {
-	RootCause         string   `json:"rootCause"`
-	Confidence        *float64 `json:"confidence"`
-	RecommendedAction string   `json:"recommendedAction"`
-	Evidence          []int    `json:"evidence"`
-	Reasoning         []string `json:"reasoning"`
+	RootCause         string      `json:"rootCause"`
+	Confidence        *float64    `json:"confidence"`
+	RecommendedAction string      `json:"recommendedAction"`
+	Evidence          []int       `json:"evidence"`
+	Reasoning         flexStrings `json:"reasoning"`
+	// RollbackRecommended gates the rule engine's rollback action; absent
+	// means false.
+	RollbackRecommended bool `json:"rollbackRecommended"`
+}
+
+// flexStrings accepts either a JSON string or an array of strings; small
+// models frequently return a single string where a list was requested.
+type flexStrings []string
+
+func (f *flexStrings) UnmarshalJSON(b []byte) error {
+	var one string
+	if err := json.Unmarshal(b, &one); err == nil {
+		if strings.TrimSpace(one) != "" {
+			*f = []string{one}
+		}
+		return nil
+	}
+	var many []string
+	if err := json.Unmarshal(b, &many); err != nil {
+		return errors.New("reasoning must be a string or a list of strings")
+	}
+	*f = many
+	return nil
 }
 
 // parseAnswer extracts the JSON object from the model output, tolerating
@@ -232,14 +257,17 @@ func (iv *Investigator) assemble(inc model.Incident, events []model.Event, a ans
 		}
 	}
 
-	// Remediation stays under deterministic control: keep the rule engine's
-	// action only if the model's cited evidence includes the deployment event
-	// that action targets.
+	// Remediation stays under deterministic control. The rule engine's action
+	// is kept only if the model explicitly recommends it AND its cited
+	// evidence includes the deployment event the action targets.
 	if rules.Action != "" {
-		if citesTarget(events, a.Evidence, rules.Target) {
+		switch {
+		case !a.RollbackRecommended:
+			out.AINote = fmt.Sprintf("The rule-based suggestion to %s %s was withdrawn: the AI analysis did not recommend it.", rules.Action, rules.Target)
+		case !citesTarget(events, a.Evidence, rules.Target):
+			out.AINote = fmt.Sprintf("The rule-based suggestion to %s %s was withdrawn: the AI did not cite the deployment event as evidence.", rules.Action, rules.Target)
+		default:
 			out.Action, out.Target = rules.Action, rules.Target
-		} else {
-			out.AINote = fmt.Sprintf("The rule-based suggestion to %s %s was not corroborated by the AI analysis, so it was withdrawn.", rules.Action, rules.Target)
 		}
 	}
 	return out

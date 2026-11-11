@@ -209,8 +209,9 @@ function renderAI(ai) {
         <div class="form-grid">
             <label>Provider<select id="ai-provider">${Object.entries(AI_PRESETS).map(([k, p]) =>
                 `<option value="${k}" ${k === provider ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select></label>
-            <label>Model<input id="ai-model" list="ai-models" value="${esc(ai.model || '')}" placeholder="llama3.2">
-                <datalist id="ai-models">${state.aiModels.map(m => `<option value="${esc(m)}">`).join('')}</datalist></label>
+            <label>Model<input id="ai-model" list="ai-models" value="${esc(ai.model || '')}" placeholder="llama3.1:8b">
+                <datalist id="ai-models">${state.aiModels.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
+                <span class="muted small">Models under ~3B parameters are fast but often give weaker answers than the built-in rules; 7B+ is recommended.</span></label>
             <label class="span2">Base URL<input id="ai-url" value="${esc(url)}" placeholder="${esc(AI_PRESETS[provider].url)}"></label>
             <label class="span2">API key<input id="ai-key" type="password" value="${esc(ai.apiKey || '')}" placeholder="(optional)">
                 <span class="muted small">${esc(AI_PRESETS[provider].keyHelp)} Stored locally in the config file (owner-only permissions).</span></label>
