@@ -42,6 +42,9 @@ The first public release of PhantomOps: a desktop app that connects to your Dock
 - **macOS**: `phantomops-darwin-universal.dmg`, `phantomops-darwin-universal.zip` (Intel & Apple Silicon)
 - `SHA256SUMS`: checksums for every file above
 
+### 📄 License
+PhantomOps is open source under the **Apache License 2.0**.
+
 ### ⚠ Known limitations
 - Linux and Windows builds are not code-signed; macOS builds are not notarized, so Gatekeeper will warn on first launch.
 - Monitoring runs only while the app is open.
