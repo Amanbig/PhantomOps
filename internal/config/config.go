@@ -76,6 +76,14 @@ type Config struct {
 	AI             AIConfig          `json:"ai"`
 	Remediation    RemediationConfig `json:"remediation"`
 	Monitoring     MonitoringConfig  `json:"monitoring"`
+	Updates        UpdatesConfig     `json:"updates"`
+}
+
+// UpdatesConfig controls the update check. Checking only sends an anonymous
+// GET to the GitHub Releases API; nothing is installed without the user.
+type UpdatesConfig struct {
+	// AutoCheckDisabled turns off the automatic check (on by default).
+	AutoCheckDisabled bool `json:"autoCheckDisabled"`
 }
 
 // MonitoringConfig controls background scans and desktop notifications.

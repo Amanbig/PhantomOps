@@ -197,3 +197,17 @@ select option { background-color: var(--panel); color: var(--text); }
 .hist-timeline { padding-left: 20px; margin: 4px 0; font-size: 13px; line-height: 1.7; }
 .hist-timeline .event-time { margin-right: 6px; }
 .toolbar-actions select { box-sizing: border-box; height: 41px; margin-top: 8px; padding-top: 0; padding-bottom: 0; }
+
+/* ---- updates ---- */
+.version { font-size: 12px; font-weight: 600; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px; margin-left: 6px; vertical-align: middle; }
+.update-badge { margin-left: 8px; font: inherit; font-size: 12px; font-weight: 700; color: #12101c; background: var(--accent); border: 0; border-radius: 999px; padding: 3px 10px; cursor: pointer; vertical-align: middle; }
+.notes { margin: 4px 0 12px; }
+.notes summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.notes-body { max-height: 260px; overflow: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; margin-top: 6px; font-size: 13px; line-height: 1.5; }
+.notes-body h3, .notes-body h4, .notes-body h5, .notes-body h6 { margin: 10px 0 4px; }
+.notes-body ul { padding-left: 18px; margin: 4px 0; }
+.notes-body hr { border: 0; border-top: 1px solid var(--border); }
+.upd-progress { margin: 8px 0 12px; }
+.upd-progress .bar { height: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; margin-bottom: 6px; }
+.upd-progress .bar span { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.upd-progress .ok { color: #7be0a4; }

@@ -1,0 +1,212 @@
+name: Release
+
+# Publishing a release:
+#   1. ./scripts/release.sh v0.2.0   (bumps the version, archives the notes)
+#   2. merge that PR, then: git tag v0.2.0 && git push origin v0.2.0
+# Nothing runs on branch pushes or pull requests. workflow_dispatch builds the
+# packages without publishing (useful to test packaging).
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # The root package (Wails GUI) needs GTK/WebKit; it is compiled by the
+      # build jobs below. Here we check everything else.
+      - name: gofmt
+        run: |
+          out="$(gofmt -l $(git ls-files '*.go'))"
+          if [ -n "$out" ]; then echo "Unformatted files:"; echo "$out"; exit 1; fi
+      - name: go vet
+        run: go vet ./internal/... ./cmd/...
+      - name: go test
+        run: go test ./internal/... ./cmd/...
+      - name: Frontend build
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      - name: Version consistency
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          ver="${tag#v}"
+          if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Tag $tag is not a vMAJOR.MINOR.PATCH version"; exit 1
+          fi
+          wails_ver="$(jq -r '.info.productVersion' wails.json)"
+          if [ "$wails_ver" != "$ver" ]; then
+            echo "wails.json productVersion is $wails_ver but the tag is $tag. Run scripts/release.sh $tag."; exit 1
+          fi
+          if ! head -n 1 RELEASE_NOTES.md | grep -q "$tag"; then
+            echo "RELEASE_NOTES.md does not start with a $tag heading."; exit 1
+          fi
+          if ! cmp -s RELEASE_NOTES.md "releases/$tag.md"; then
+            echo "releases/$tag.md is missing or differs from RELEASE_NOTES.md. Run scripts/release.sh $tag."; exit 1
+          fi
+          if ! grep -q "\*\*$tag\*\*" releases/README.md; then
+            echo "releases/README.md has no row for $tag."; exit 1
+          fi
+
+  build:
+    name: Build (${{ matrix.platform }})
+    needs: checks
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux/amd64
+            output_name: phantomops-linux-amd64
+          - os: windows-latest
+            platform: windows/amd64
+            output_name: phantomops-windows-amd64
+          - os: macos-latest
+            platform: darwin/universal
+            output_name: phantomops-darwin-universal
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then v="$GITHUB_REF_NAME"; else v="dev"; fi
+          echo "APP_VERSION=$v" >> "$GITHUB_ENV"
+          echo "Building PhantomOps $v"
+
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: NSIS (Windows)
+        if: runner.os == 'Windows'
+        uses: nsis-dev/setup-nsis@v1
+
+      - name: Install Wails and packaging tools
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.0
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          fi
+
+      - name: Build
+        env:
+          MSYS_NO_PATHCONV: 1
+          MSYS2_ARG_CONV_EXCL: "*"
+        run: |
+          LDFLAGS="-X 'PhantomOps/internal/version.Version=${APP_VERSION}'"
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            wails build -tags webkit2_41 -platform ${{ matrix.platform }} -ldflags "$LDFLAGS"
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            for p in "/c/Program Files/NSIS" "/c/Program Files (x86)/NSIS" "/c/ProgramData/chocolatey/bin"; do
+              if [ -d "$p" ]; then export PATH="$p:$PATH"; fi
+            done
+            wails build -nsis -platform ${{ matrix.platform }} -ldflags "$LDFLAGS"
+          else
+            wails build -platform ${{ matrix.platform }} -ldflags "$LDFLAGS"
+          fi
+          ls -la build/bin
+
+      - name: Package Linux (.tar.gz, .deb, .rpm)
+        if: runner.os == 'Linux'
+        run: |
+          tar -czvf phantomops-linux-amd64.tar.gz -C build/bin PhantomOps
+          VERSION_CLEAN="${APP_VERSION#v}"
+          if [ "$VERSION_CLEAN" = "dev" ]; then VERSION_CLEAN="0.0.0"; fi
+          cd build/linux
+          VERSION="$VERSION_CLEAN" nfpm package --config nfpm.yaml --packager deb --target ../../phantomops-linux-amd64.deb
+          VERSION="$VERSION_CLEAN" nfpm package --config nfpm.yaml --packager rpm --target ../../phantomops-linux-amd64.rpm
+
+      - name: Package Windows (.zip, installer .exe)
+        if: runner.os == 'Windows'
+        run: |
+          (cd build/bin && 7z a ../../phantomops-windows-amd64.zip PhantomOps.exe)
+          installer="$(find build/bin -type f -iname '*installer*.exe' | head -n 1)"
+          if [ -z "$installer" ]; then echo "NSIS installer was not produced" >&2; exit 1; fi
+          cp "$installer" phantomops-windows-amd64-installer.exe
+
+      - name: Package macOS (.zip, .dmg)
+        if: runner.os == 'macOS'
+        run: |
+          (cd build/bin && zip -r ../../phantomops-darwin-universal.zip PhantomOps.app)
+          brew install create-dmg || true
+          create-dmg --volname "PhantomOps" --window-pos 200 120 --window-size 600 400 --icon-size 100 \
+            --icon "PhantomOps.app" 175 160 --hide-extension "PhantomOps.app" --app-drop-link 425 160 \
+            phantomops-darwin-universal.dmg build/bin/PhantomOps.app \
+          || hdiutil create -volname "PhantomOps" -srcfolder build/bin/PhantomOps.app -ov -format UDZO phantomops-darwin-universal.dmg
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.output_name }}
+          path: phantomops-*.*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      # The in-app updater refuses to install anything not listed here.
+      - name: Checksums
+        working-directory: release-assets
+        run: |
+          sha256sum phantomops-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: release-assets/*
+          body_path: RELEASE_NOTES.md
+          generate_release_notes: true
+          draft: false
+          prerelease: false

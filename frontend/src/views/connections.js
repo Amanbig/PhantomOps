@@ -1,5 +1,6 @@
 import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, GetMonitorStatus} from '../../wailsjs/go/main/App';
 import {esc} from '../util.js';
+import {mountUpdates} from './updates.js';
 
 // Describes each connectable service and the form fields it needs.
 const TYPES = {
@@ -159,6 +160,7 @@ function render() {
         ${renderMonitoring(config.monitoring || {})}
         ${renderRemediation(config.remediation || {})}
         ${renderGeneral(config)}
+        <div class="panel" id="updates-panel"></div>
         <p class="muted small">Config file: <code>${esc(path)}</code></p>
         ${state.form ? renderForm() : ''}`;
     bind();
@@ -337,6 +339,8 @@ function blankConn(type) {
 
 function bind() {
     const $ = s => root.querySelector(s);
+    const up = $('#updates-panel');
+    if (up) mountUpdates(up);
 
     $('#add')?.addEventListener('click', () => { state.form = {type: '', conn: null}; render(); });
     $('#detect')?.addEventListener('click', async e => {

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=PhantomOps
+Comment=The ghost hunter for your infrastructure
+Exec=env WEBKIT_DISABLE_DMABUF_RENDERER=1 /usr/bin/phantomops
+Icon=phantomops
+Terminal=false
+Type=Application
+Categories=Development;System;Monitor;
+Keywords=devops;sre;incident;docker;kubernetes;nomad;prometheus;loki;
+StartupWMClass=PhantomOps

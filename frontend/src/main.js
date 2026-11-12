@@ -6,6 +6,8 @@ import {mountConnections} from './views/connections.js';
 import {mountActivity} from './views/activity.js';
 import {mountHistory} from './views/history.js';
 import {EventsOn} from '../wailsjs/runtime/runtime';
+import {GetAppVersion} from '../wailsjs/go/main/App';
+import {onUpdateAvailable} from './views/updates.js';
 
 const TABS = [
     {id: 'incidents', label: 'Incidents'},
@@ -36,7 +38,8 @@ document.querySelector('#app').innerHTML = `
     <div class="shell">
         <header class="topbar">
             <div>
-                <div class="brand">👻 PhantomOps</div>
+                <div class="brand">👻 PhantomOps <span class="version" id="app-version"></span>
+                    <button class="update-badge" id="update-badge" hidden>⬆ Update available</button></div>
                 <div class="tagline">Your infrastructure is haunted. Find out what's killing it.</div>
             </div>
             <nav class="tabs">${TABS.map(t => `<button class="tab" data-tab="${t.id}">${t.label}</button>`).join('')}</nav>
@@ -45,3 +48,14 @@ document.querySelector('#app').innerHTML = `
     </div>`;
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
 show('incidents');
+
+GetAppVersion().then(v => { document.getElementById('app-version').textContent = v === 'dev' ? 'dev' : v; }).catch(() => {});
+const badge = document.getElementById('update-badge');
+onUpdateAvailable(info => {
+    badge.hidden = false;
+    badge.textContent = `⬆ ${info.latestVersion} available`;
+});
+badge.addEventListener('click', () => {
+    show('connections');
+    setTimeout(() => document.getElementById('updates-panel')?.scrollIntoView({block: 'start'}), 150);
+});

@@ -20,6 +20,18 @@ export namespace config {
 	        this.apiKey = source["apiKey"];
 	    }
 	}
+	export class UpdatesConfig {
+	    autoCheckDisabled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdatesConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.autoCheckDisabled = source["autoCheckDisabled"];
+	    }
+	}
 	export class MonitoringConfig {
 	    enabled: boolean;
 	    intervalMinutes: number;
@@ -98,6 +110,7 @@ export namespace config {
 	    ai: AIConfig;
 	    remediation: RemediationConfig;
 	    monitoring: MonitoringConfig;
+	    updates: UpdatesConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -112,6 +125,7 @@ export namespace config {
 	        this.ai = this.convertValues(source["ai"], AIConfig);
 	        this.remediation = this.convertValues(source["remediation"], RemediationConfig);
 	        this.monitoring = this.convertValues(source["monitoring"], MonitoringConfig);
+	        this.updates = this.convertValues(source["updates"], UpdatesConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -132,6 +146,7 @@ export namespace config {
 		    return a;
 		}
 	}
+	
 	
 	
 
@@ -625,6 +640,105 @@ export namespace remediate {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.applied = source["applied"];
 	        this.healthy = source["healthy"];
+	        this.message = source["message"];
+	    }
+	}
+
+}
+
+export namespace updater {
+	
+	export class Asset {
+	    name: string;
+	    type: string;
+	    size: number;
+	    isDefault: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Asset(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.size = source["size"];
+	        this.isDefault = source["isDefault"];
+	    }
+	}
+	export class Info {
+	    available: boolean;
+	    currentVersion: string;
+	    latestVersion: string;
+	    releaseName: string;
+	    releaseNotes: string;
+	    publishedAt: string;
+	    releaseUrl: string;
+	    platform: string;
+	    installType: string;
+	    needsElevation: boolean;
+	    canInstall: boolean;
+	    reason: string;
+	    assets: Asset[];
+	    noReleases: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Info(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.currentVersion = source["currentVersion"];
+	        this.latestVersion = source["latestVersion"];
+	        this.releaseName = source["releaseName"];
+	        this.releaseNotes = source["releaseNotes"];
+	        this.publishedAt = source["publishedAt"];
+	        this.releaseUrl = source["releaseUrl"];
+	        this.platform = source["platform"];
+	        this.installType = source["installType"];
+	        this.needsElevation = source["needsElevation"];
+	        this.canInstall = source["canInstall"];
+	        this.reason = source["reason"];
+	        this.assets = this.convertValues(source["assets"], Asset);
+	        this.noReleases = source["noReleases"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class Progress {
+	    status: string;
+	    percentage: number;
+	    readBytes: number;
+	    totalBytes: number;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Progress(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.status = source["status"];
+	        this.percentage = source["percentage"];
+	        this.readBytes = source["readBytes"];
+	        this.totalBytes = source["totalBytes"];
 	        this.message = source["message"];
 	    }
 	}
