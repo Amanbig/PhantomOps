@@ -23,7 +23,7 @@ function show(view, opts = {}) {
         case 'history': return mountHistory(el, opts);
         case 'activity': return mountActivity(el);
         case 'connections': return mountConnections(el, opts);
-        case 'settings': return mountSettings(el);
+        case 'settings': return mountSettings(el, opts);
         case 'overview': return mountOverview(el, {
             openIncident: id => show('incidents', id ? {focusId: id} : {}),
             openDashboard: id => show('dashboard', {connId: id}),
@@ -68,6 +68,6 @@ onUpdateAvailable(info => {
     badge.textContent = `⬆ ${info.latestVersion} available`;
 });
 badge.addEventListener('click', () => {
-    show('settings');
-    setTimeout(() => document.getElementById('updates-panel')?.scrollIntoView({block: 'start'}), 150);
+    show('settings', {open: 'updates'});
+    setTimeout(() => document.getElementById('updates-card')?.scrollIntoView({block: 'start'}), 150);
 });

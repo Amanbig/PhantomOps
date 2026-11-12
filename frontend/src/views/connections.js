@@ -1,4 +1,4 @@
-import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, GetMonitorStatus, LastResult} from '../../wailsjs/go/main/App';
+import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, GetMonitorStatus, LastResult, GetAppVersion, PendingUpdate} from '../../wailsjs/go/main/App';
 import {esc} from '../util.js';
 import {mountUpdates} from './updates.js';
 
@@ -74,7 +74,8 @@ function isLocalUrl(u) {
     } catch { return false; }
 }
 
-let state = {settings: null, detected: null, health: {}, form: null, error: '', aiTest: null, aiModels: [], mode: 'connections', focusId: '', scanHealth: {}};
+let state = {settings: null, detected: null, health: {}, form: null, error: '', aiTest: null, aiModels: [], mode: 'connections', focusId: '', scanHealth: {},
+    open: new Set(['ai']), appVersion: '', pendingUpdate: null};
 let root;
 let onChange = () => {};
 
@@ -101,6 +102,8 @@ async function refresh() {
         state.settings = await GetSettings();
         state.error = '';
         state.scanHealth = scanHealth(await LastResult().catch(() => null));
+        state.appVersion = await GetAppVersion().catch(() => state.appVersion);
+        state.pendingUpdate = await PendingUpdate().catch(() => null);
     } catch (err) {
         state.error = String(err);
     }
@@ -178,7 +181,7 @@ function render() {
             ${renderMonitoring(config.monitoring || {})}
             ${renderRemediation(config.remediation || {})}
             ${renderGeneral(config)}
-            <div class="panel" id="updates-panel"></div>
+            ${renderUpdates()}
             <p class="muted small">Config file: <code>${esc(path)}</code></p>`;
         bind();
         return;
@@ -246,13 +249,28 @@ function renderDetected(existing) {
         </div>`;
 }
 
+// acc renders a collapsible settings card. The header toggles it; headExtra
+// (e.g. an "Enabled" switch) sits next to the toggle so it works while collapsed.
+function acc(id, title, summaryText, headExtra, body, panelId = '') {
+    const open = state.open.has(id);
+    return `<section class="panel acc ${open ? 'open' : ''}" data-acc="${id}"${panelId ? ` id="${panelId}"` : ''}>
+        <div class="acc-head">
+            <button type="button" class="acc-toggle" data-acc-toggle="${id}" aria-expanded="${open}" aria-controls="acc-body-${id}">
+                <span class="acc-chevron" aria-hidden="true"></span>
+                <strong>${title}</strong>
+                <span class="acc-summary">${esc(summaryText)}</span>
+            </button>${headExtra || ''}
+        </div>
+        <div class="acc-body" id="acc-body-${id}"${open ? '' : ' hidden'}>${body}</div>
+    </section>`;
+}
+
 function renderAI(ai) {
     const provider = ai.provider || 'ollama';
     const url = ai.baseUrl || AI_PRESETS[provider].url;
     const local = isLocalUrl(url);
-    return `<div class="panel" id="ai-panel">
-        <div class="panel-head"><strong>🤖 AI investigator</strong>
-            <label class="check" style="margin:0"><input type="checkbox" id="ai-enabled" ${ai.enabled ? 'checked' : ''}> Enabled</label></div>
+    const summaryText = ai.enabled ? `On · ${ai.model || 'no model set'} · ${local ? 'local' : 'remote'}` : 'Off';
+    const body = `
         <p class="muted small" style="margin-top:0">A language model double-checks Phantom's rule-based diagnosis. Its answer must cite real timeline events and may only mention services that appear in your data. It can never trigger actions on its own. Off by default.</p>
         <div class="form-grid">
             <label>Provider<select id="ai-provider">${Object.entries(AI_PRESETS).map(([k, p]) =>
@@ -271,15 +289,15 @@ function renderAI(ai) {
         <div class="toolbar-actions">
             <button class="btn btn-small btn-secondary" id="ai-test">Test &amp; load models</button>
             <button class="btn btn-small" id="ai-save">Save AI settings</button>
-        </div>
-    </div>`;
+        </div>`;
+    return acc('ai', '🤖 AI investigator', summaryText,
+        `<label class="check acc-switch"><input type="checkbox" id="ai-enabled" ${ai.enabled ? 'checked' : ''}> Enabled</label>`, body, 'ai-panel');
 }
 
 function renderMonitoring(m) {
     const sev = m.notifyMinSeverity || 'critical';
-    return `<div class="panel" id="mon-panel">
-        <div class="panel-head"><strong>⏱ Monitoring</strong>
-            <label class="check" style="margin:0"><input type="checkbox" id="mon-enabled" ${m.enabled ? 'checked' : ''}> Scan in the background</label></div>
+    const summaryText = m.enabled ? `Every ${m.intervalMinutes || 5} min${m.notify ? ' · notifications on' : ''}` : 'Off';
+    const body = `
         <p class="muted small" style="margin:0 0 10px">While PhantomOps is open, it scans on a schedule, keeps the incident history up to date, and can send a desktop notification when something new breaks. Manual scans never notify.</p>
         <div class="form-grid">
             <label>Scan every (minutes)<input id="mon-interval" type="number" min="1" max="1440" value="${esc(m.intervalMinutes || 5)}"></label>
@@ -292,30 +310,38 @@ function renderMonitoring(m) {
         <div class="toolbar-actions">
             <button class="btn btn-small btn-secondary" id="mon-test">Send test notification</button>
             <button class="btn btn-small" id="mon-save">Save monitoring</button>
-        </div>
-    </div>`;
+        </div>`;
+    return acc('monitoring', '⏱ Monitoring', summaryText,
+        `<label class="check acc-switch"><input type="checkbox" id="mon-enabled" ${m.enabled ? 'checked' : ''}> Scan in the background</label>`, body, 'mon-panel');
 }
 
 function renderRemediation(rem) {
-    return `<div class="panel" id="rem-panel">
-        <div class="panel-head"><strong>🛠 Remediation</strong>
-            <label class="check" style="margin:0"><input type="checkbox" id="rem-enabled" ${rem.enabled ? 'checked' : ''}> Allow rollbacks</label></div>
+    const body = `
         <p class="muted small" style="margin:0 0 8px">When on, an incident that points at a bad Kubernetes or Nomad deployment can be rolled back to its previous revision. Every rollback shows a preview of exactly what changes, needs you to type the workload name, and is recorded on the Activity tab. Never runs automatically. Off by default.</p>
-        <button class="btn btn-small" id="rem-save">Save</button>
-    </div>`;
+        <button class="btn btn-small" id="rem-save">Save</button>`;
+    return acc('remediation', '🛠 Remediation', rem.enabled ? 'Rollbacks allowed (with confirmation)' : 'Off',
+        `<label class="check acc-switch"><input type="checkbox" id="rem-enabled" ${rem.enabled ? 'checked' : ''}> Allow rollbacks</label>`, body, 'rem-panel');
 }
 
 function renderGeneral(config) {
-    return `<div class="panel">
-        <div class="panel-head"><strong>Analysis settings</strong></div>
+    const ignored = (config.ignoreSubjects || []).length;
+    const summaryText = `${config.environment || 'no environment label'} · ${config.windowMinutes || 30} min window${ignored ? ` · ${ignored} ignored` : ''}`;
+    const body = `
         <div class="form-grid">
             <label>Environment label<input id="g-env" value="${esc(config.environment)}" placeholder="production"></label>
             <label>Look-back window (minutes)<input id="g-window" type="number" min="1" max="1440" value="${esc(config.windowMinutes || 30)}"></label>
             <label class="span2">Ignore subjects (comma-separated substrings)
                 <input id="g-ignore" value="${esc((config.ignoreSubjects || []).join(', '))}" placeholder="monitoring, cadvisor"></label>
         </div>
-        <button class="btn btn-small" id="save-general">Save settings</button>
-    </div>`;
+        <button class="btn btn-small" id="save-general">Save settings</button>`;
+    return acc('analysis', '🔎 Analysis settings', summaryText, '', body, 'analysis-panel');
+}
+
+// The Updates card's contents are drawn by views/updates.js into #updates-panel.
+function renderUpdates() {
+    const v = state.appVersion === 'dev' ? 'development build' : state.appVersion;
+    const pend = state.pendingUpdate && state.pendingUpdate.available ? ` · ${state.pendingUpdate.latestVersion} available` : '';
+    return acc('updates', '🔄 About &amp; updates', `${v ? 'PhantomOps ' + v : 'PhantomOps'}${pend}`, '', '<div id="updates-panel"></div>', 'updates-card');
 }
 
 function renderForm() {
@@ -383,6 +409,15 @@ function blankConn(type) {
 
 function bind() {
     const $ = s => root.querySelector(s);
+    // Settings accordion: toggle in place so unsaved edits in other cards survive.
+    root.querySelectorAll('[data-acc-toggle]').forEach(btn => btn.addEventListener('click', () => {
+        const id = btn.dataset.accToggle, card = btn.closest('.acc'), body = card.querySelector('.acc-body');
+        const open = !state.open.has(id);
+        if (open) state.open.add(id); else state.open.delete(id);
+        card.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', String(open));
+        body.hidden = !open;
+    }));
     $('#goto-settings')?.addEventListener('click', e => { e.preventDefault(); gotoSettings(); });
     const up = $('#updates-panel');
     if (up) mountUpdates(up);
@@ -540,9 +575,12 @@ function bind() {
 
 function closeForm() { state.form = null; render(); }
 
-// mountSettings shows AI, monitoring, remediation, analysis and update settings.
-export async function mountSettings(el) {
+// mountSettings shows AI, monitoring, remediation, analysis and update settings
+// as collapsible cards. Each visit starts with only the top card open (or the
+// one named by `open`, e.g. 'updates' when coming from the update badge).
+export async function mountSettings(el, {open = ''} = {}) {
     state.mode = 'settings';
+    state.open = new Set([open || 'ai']);
     state.form = null;
     root = el;
     root.innerHTML = '<p class="muted">Loading…</p>';
