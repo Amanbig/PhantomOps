@@ -19,7 +19,8 @@ import (
 
 // DefaultQuery selects error-ish lines from every service. service_name is
 // populated automatically by Loki 3.x from container/app/job labels.
-const DefaultQuery = `{service_name=~".+"} |~ "(?i)(error|fatal|panic|exception|refused|too many connections|timeout|out of memory)"`
+// Lines quoting the query itself (Loki's own query logs) are excluded.
+const DefaultQuery = `{service_name=~".+"} |~ "(?i)(error|fatal|panic|exception|refused|too many connections|timeout|out of memory)" != "error|fatal|panic|exception"`
 
 const (
 	queryLimit    = 1000

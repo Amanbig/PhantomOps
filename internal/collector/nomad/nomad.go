@@ -61,6 +61,8 @@ type taskState struct {
 
 type allocStub struct {
 	ID           string               `json:"ID"`
+	NodeID       string               `json:"NodeID"`
+	JobVersion   uint64               `json:"JobVersion"`
 	JobID        string               `json:"JobID"`
 	Namespace    string               `json:"Namespace"`
 	TaskGroup    string               `json:"TaskGroup"`
@@ -70,8 +72,12 @@ type allocStub struct {
 }
 
 type groupSummary struct {
-	Queued int `json:"Queued"`
-	Lost   int `json:"Lost"`
+	Queued   int `json:"Queued"`
+	Lost     int `json:"Lost"`
+	Running  int `json:"Running"`
+	Starting int `json:"Starting"`
+	Failed   int `json:"Failed"`
+	Complete int `json:"Complete"`
 }
 
 type jobStub struct {
