@@ -198,6 +198,45 @@ export namespace engine {
 
 export namespace history {
 	
+	export class MuteRule {
+	    key: string;
+	    title: string;
+	    environment: string;
+	    by: string;
+	    // Go type: time
+	    at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new MuteRule(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.title = source["title"];
+	        this.environment = source["environment"];
+	        this.by = source["by"];
+	        this.at = this.convertValues(source["at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Record {
 	    id: string;
 	    key: string;
@@ -213,6 +252,12 @@ export namespace history {
 	    scans: number;
 	    reopened: number;
 	    latest: model.Incident;
+	    ackBy?: string;
+	    // Go type: time
+	    ackAt?: any;
+	    // Go type: time
+	    snoozedUntil?: any;
+	    muted?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Record(source);
@@ -231,6 +276,10 @@ export namespace history {
 	        this.scans = source["scans"];
 	        this.reopened = source["reopened"];
 	        this.latest = this.convertValues(source["latest"], model.Incident);
+	        this.ackBy = source["ackBy"];
+	        this.ackAt = this.convertValues(source["ackAt"], null);
+	        this.snoozedUntil = this.convertValues(source["snoozedUntil"], null);
+	        this.muted = source["muted"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -506,6 +555,12 @@ export namespace model {
 	    automatic: boolean;
 	    timeline: Event[];
 	    investigation: Investigation;
+	    ackBy?: string;
+	    // Go type: time
+	    ackAt?: any;
+	    // Go type: time
+	    snoozedUntil?: any;
+	    muted?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Incident(source);
@@ -521,6 +576,10 @@ export namespace model {
 	        this.automatic = source["automatic"];
 	        this.timeline = this.convertValues(source["timeline"], Event);
 	        this.investigation = this.convertValues(source["investigation"], Investigation);
+	        this.ackBy = source["ackBy"];
+	        this.ackAt = this.convertValues(source["ackAt"], null);
+	        this.snoozedUntil = this.convertValues(source["snoozedUntil"], null);
+	        this.muted = source["muted"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

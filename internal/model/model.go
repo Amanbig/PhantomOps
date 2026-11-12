@@ -95,4 +95,10 @@ type Incident struct {
 	Automatic     bool          `json:"automatic"`
 	Timeline      []Event       `json:"timeline"`
 	Investigation Investigation `json:"investigation"`
+
+	// Triage state, filled in from the incident history.
+	AckBy        string     `json:"ackBy,omitempty"`
+	AckAt        *time.Time `json:"ackAt,omitempty"`
+	SnoozedUntil *time.Time `json:"snoozedUntil,omitempty"`
+	Muted        bool       `json:"muted,omitempty"`
 }

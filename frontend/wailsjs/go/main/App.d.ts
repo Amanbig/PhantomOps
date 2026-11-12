@@ -8,6 +8,8 @@ import {model} from '../models';
 import {main} from '../models';
 import {engine} from '../models';
 
+export function AcknowledgeIncident(arg1:string):Promise<void>;
+
 export function ApproveRollback(arg1:string,arg2:string):Promise<remediate.Result>;
 
 export function AuditLog(arg1:number):Promise<Array<remediate.Entry>>;
@@ -34,6 +36,10 @@ export function InstallUpdate(arg1:string):Promise<void>;
 
 export function LastResult():Promise<engine.Result>;
 
+export function MuteIncident(arg1:string):Promise<history.MuteRule>;
+
+export function MuteRules():Promise<Array<history.MuteRule>>;
+
 export function PendingUpdate():Promise<updater.Info>;
 
 export function PreviewRollback(arg1:string):Promise<main.RollbackPreview>;
@@ -46,6 +52,14 @@ export function Scan():Promise<engine.Result>;
 
 export function SendTestNotification():Promise<void>;
 
+export function SnoozeIncident(arg1:string,arg2:number):Promise<void>;
+
 export function TestAI(arg1:config.AIConfig):Promise<main.AITestResult>;
 
 export function TestConnection(arg1:config.Connection):Promise<main.TestResult>;
+
+export function UnacknowledgeIncident(arg1:string):Promise<void>;
+
+export function UnmuteIncident(arg1:string):Promise<void>;
+
+export function UnsnoozeIncident(arg1:string):Promise<void>;

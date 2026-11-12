@@ -1,4 +1,4 @@
-import {Scan, LastResult, GetMonitorStatus} from '../../wailsjs/go/main/App';
+import {Scan, LastResult, GetMonitorStatus, AcknowledgeIncident, UnacknowledgeIncident, SnoozeIncident, UnsnoozeIncident, MuteIncident, UnmuteIncident} from '../../wailsjs/go/main/App';
 import {EventsOn} from '../../wailsjs/runtime/runtime';
 import {openRollback} from './rollback.js';
 import {esc, clock} from '../util.js';
@@ -38,6 +38,52 @@ function renderInvestigation(inc) {
         </section>`;
 }
 
+function ago(iso) {
+    const m = Math.round((Date.now() - new Date(iso)) / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m} min ago`;
+    const h = Math.round(m / 60);
+    return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
+}
+
+function utcTime(iso) {
+    const d = new Date(iso);
+    const sameDay = d.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
+    return (sameDay ? '' : d.toLocaleDateString(undefined, {month: 'short', day: 'numeric', timeZone: 'UTC'}) + ' ') + d.toISOString().slice(11, 16) + ' UTC';
+}
+
+// Same key the backend uses for mute rules (environment + title).
+const muteKey = inc => `${inc.environment}|${inc.title}`;
+
+function renderTriage(inc) {
+    const id = esc(inc.id);
+    const ack = inc.ackBy
+        ? `<span class="triage-ack" title="Acknowledged ${esc(utcTime(inc.ackAt))}">✓ Acknowledged by ${esc(inc.ackBy)} · ${esc(ago(inc.ackAt))}</span>
+           <button class="btn-link" data-triage="unack" data-id="${id}">Undo</button>`
+        : `<button class="btn btn-small btn-secondary" data-triage="ack" data-id="${id}" title="Let others know someone is on it">Acknowledge</button>`;
+    return `<div class="triage">
+        ${ack}
+        <span class="snooze">
+            <span class="muted small">Snooze</span>
+            ${[[60, '1 h'], [240, '4 h'], [1440, '24 h']].map(([m, l]) =>
+                `<button class="btn btn-small btn-secondary" data-triage="snooze" data-id="${id}" data-minutes="${m}" title="Hide and silence for ${l}">${l}</button>`).join('')}
+        </span>
+        <button class="btn btn-small btn-secondary" data-triage="mute" data-id="${id}" title="Hide and silence every “${esc(inc.title)}” incident until unmuted">Mute</button>
+    </div>`;
+}
+
+function renderHidden(snoozed, muted) {
+    if (!snoozed.length && !muted.length) return '';
+    const parts = [snoozed.length && `${snoozed.length} snoozed`, muted.length && `${muted.length} muted`].filter(Boolean).join(' · ');
+    const row = (inc, label, action) => `<li><span class="badge badge-${esc(inc.severity)}">${esc(inc.severity)}</span>
+        <span class="hidden-title">${esc(inc.title)}</span> <span class="muted small">${label}</span> ${action}</li>`;
+    return `<details class="hidden-incidents"><summary>${parts} hidden</summary><ul>
+        ${snoozed.map(i => row(i, `snoozed until ${esc(utcTime(i.snoozedUntil))}`,
+            `<button class="btn-link" data-triage="unsnooze" data-id="${esc(i.id)}">Show now</button>`)).join('')}
+        ${muted.map(i => row(i, 'muted', `<button class="btn-link" data-triage="unmute" data-key="${esc(muteKey(i))}">Unmute</button>`)).join('')}
+    </ul></details>`;
+}
+
 function renderIncident(inc) {
     incidentsById.set(inc.id, inc);
     const cited = new Set(inc.investigation.citedEvents || []);
@@ -68,6 +114,7 @@ function renderIncident(inc) {
                     <span class="badge badge-${esc(inc.severity)}">${esc(inc.severity)}</span>
                 </div>
             </header>
+            ${renderTriage(inc)}
             <ol class="timeline">${events}</ol>
             ${renderInvestigation(inc)}
         </article>`;
@@ -88,7 +135,7 @@ function attachAIListener() {
 }
 
 function renderStatus(res) {
-    const when = new Date(res.scannedAt).toLocaleTimeString();
+    const when = new Date(res.scannedAt).toISOString().slice(11, 19) + ' UTC';
     const sources = (res.collectors || []).map(c => {
         const failed = res.errors && res.errors[c];
         return `<span class="chip ${failed ? 'chip-bad' : 'chip-ok'}" title="${esc(failed || 'ok')}">${esc(c)}</span>`;
@@ -147,12 +194,16 @@ export async function mountIncidents(root, {goToConnections, focusId} = {}) {
                 <p class="muted">Connect Docker, Kubernetes, Nomad, Prometheus, Loki or an SSH host so Phantom has something to investigate.</p>
                 <button class="btn" id="goto-conn">Connect services</button></div>`;
         } else {
-            const incidents = res.incidents || [];
-            content.innerHTML = renderStatus(res) + (incidents.length
-                ? incidents.map(renderIncident).join('')
+            const all = res.incidents || [];
+            const muted = all.filter(i => i.muted);
+            const snoozed = all.filter(i => !i.muted && i.snoozedUntil);
+            const visible = all.filter(i => !i.muted && !i.snoozedUntil);
+            content.innerHTML = renderStatus(res) + (visible.length
+                ? visible.map(renderIncident).join('')
                 : `<div class="empty"><div class="empty-icon">👻</div>
-                   <h3>No incidents detected</h3>
-                   <p class="muted">Suspiciously quiet… Phantom is watching.</p></div>`);
+                   <h3>${all.length ? 'Nothing needs attention' : 'No incidents detected'}</h3>
+                   <p class="muted">${all.length ? 'Every open incident is snoozed or muted.' : 'Suspiciously quiet… Phantom is watching.'}</p></div>`)
+                + renderHidden(snoozed, muted);
         }
         content.querySelector('#goto-conn')?.addEventListener('click', goToConnections);
         if (focusId) {
@@ -179,11 +230,33 @@ export async function mountIncidents(root, {goToConnections, focusId} = {}) {
     }
 
     btn.addEventListener('click', scan);
-    content.addEventListener('click', e => {
+    content.addEventListener('click', async e => {
         const b = e.target.closest('[data-approve]');
-        if (!b) return;
-        const inc = incidentsById.get(b.dataset.approve);
-        if (inc) openRollback(inc, {onDone: scan, goToConnections});
+        if (b) {
+            const inc = incidentsById.get(b.dataset.approve);
+            if (inc) openRollback(inc, {onDone: scan, goToConnections});
+            return;
+        }
+        const t = e.target.closest('[data-triage]');
+        if (!t) return;
+        const {triage: action, id, minutes, key} = t.dataset;
+        const inc = id && incidentsById.get(id);
+        if (action === 'mute' && !confirm(`Mute “${inc?.title}”? It will be hidden and silent until you unmute it (in the hidden list here or in History).`)) return;
+        t.disabled = true;
+        try {
+            switch (action) {
+                case 'ack': await AcknowledgeIncident(id); break;
+                case 'unack': await UnacknowledgeIncident(id); break;
+                case 'snooze': await SnoozeIncident(id, Number(minutes)); break;
+                case 'unsnooze': await UnsnoozeIncident(id); break;
+                case 'mute': await MuteIncident(id); break;
+                case 'unmute': await UnmuteIncident(key); break;
+            }
+            render(await LastResult());
+        } catch (err) {
+            t.disabled = false;
+            alert(String(err));
+        }
     });
 
     // Show the latest result immediately; scan only if there is none yet.
