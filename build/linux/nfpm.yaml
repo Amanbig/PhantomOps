@@ -18,7 +18,21 @@ contents:
       mode: 0755
   - src: phantomops.desktop
     dst: /usr/share/applications/phantomops.desktop
-  - src: ../appicon.png
+  - src: icons/16x16.png
+    dst: /usr/share/icons/hicolor/16x16/apps/phantomops.png
+  - src: icons/24x24.png
+    dst: /usr/share/icons/hicolor/24x24/apps/phantomops.png
+  - src: icons/32x32.png
+    dst: /usr/share/icons/hicolor/32x32/apps/phantomops.png
+  - src: icons/48x48.png
+    dst: /usr/share/icons/hicolor/48x48/apps/phantomops.png
+  - src: icons/64x64.png
+    dst: /usr/share/icons/hicolor/64x64/apps/phantomops.png
+  - src: icons/128x128.png
+    dst: /usr/share/icons/hicolor/128x128/apps/phantomops.png
+  - src: icons/256x256.png
+    dst: /usr/share/icons/hicolor/256x256/apps/phantomops.png
+  - src: icons/512x512.png
     dst: /usr/share/icons/hicolor/512x512/apps/phantomops.png
 
 depends:

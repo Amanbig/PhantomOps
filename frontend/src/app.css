@@ -31,7 +31,7 @@ html, body { background: var(--bg); color: var(--text); text-align: left; height
 }
 .no-drag { --wails-draggable: no-drag; }
 .tb-left { display: flex; align-items: center; gap: 8px; padding-left: 14px; min-width: 0; }
-.tb-logo { font-size: 16px; line-height: 1; }
+.tb-logo { width: 20px; height: 20px; display: block; }
 .tb-name { font-weight: 700; font-size: 14px; letter-spacing: .2px; white-space: nowrap; }
 .tb-right { display: flex; justify-content: flex-end; height: 100%; }
 .titlebar .tabs { padding: 3px; border-radius: 8px; }

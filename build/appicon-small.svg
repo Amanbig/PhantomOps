@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Simplified PhantomOps icon for 32 px and below: full-bleed tile, larger ghost, no ring or mouth. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a3150"/>
+      <stop offset="1" stop-color="#0d1019"/>
+    </linearGradient>
+    <linearGradient id="ghost" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e4dbff"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1024" height="1024" rx="230" fill="url(#tile)"/>
+  <g transform="translate(512 540) scale(1.42) translate(-512 -560)">
+    <path fill="url(#ghost)" d="M312 470 A200 200 0 0 1 712 470 L712 760 Q712 800 680 784 L646 764 Q612 744 579 772 L548 798 Q512 826 476 798 L445 772 Q412 744 378 764 L344 784 Q312 800 312 760 Z"/>
+    <ellipse cx="440" cy="490" rx="46" ry="62" fill="#0e1118"/>
+    <ellipse cx="584" cy="490" rx="46" ry="62" fill="#0e1118"/>
+  </g>
+</svg>

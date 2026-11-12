@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- PhantomOps app icon. Source of truth: regenerate PNG/ICO with scripts/icons.py -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#232a42"/>
+      <stop offset="1" stop-color="#0b0e15"/>
+    </linearGradient>
+    <linearGradient id="ghost" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ddd3ff"/>
+      <stop offset="0.55" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#7c4dff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#a78bfa" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#a78bfa" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="72" y="72" width="880" height="880" rx="200" fill="url(#tile)"/>
+  <rect x="72" y="72" width="880" height="880" rx="200" fill="none" stroke="#a78bfa" stroke-opacity="0.35" stroke-width="6"/>
+  <!-- radar ring: "watching your infrastructure" -->
+  <circle cx="512" cy="512" r="330" fill="none" stroke="#a78bfa" stroke-opacity="0.18" stroke-width="10"/>
+  <circle cx="512" cy="520" r="300" fill="url(#glow)"/>
+  <!-- ghost -->
+  <path fill="url(#ghost)" d="M312 470 A200 200 0 0 1 712 470 L712 760 Q712 800 680 784 L646 764 Q612 744 579 772 L548 798 Q512 826 476 798 L445 772 Q412 744 378 764 L344 784 Q312 800 312 760 Z"/>
+  <!-- eyes -->
+  <ellipse cx="444" cy="482" rx="40" ry="56" fill="#0e1118"/>
+  <ellipse cx="580" cy="482" rx="40" ry="56" fill="#0e1118"/>
+  <circle cx="458" cy="462" r="12" fill="#ffffff" fill-opacity="0.9"/>
+  <circle cx="594" cy="462" r="12" fill="#ffffff" fill-opacity="0.9"/>
+  <ellipse cx="512" cy="610" rx="22" ry="26" fill="#0e1118" fill-opacity="0.85"/>
+</svg>
