@@ -70,8 +70,6 @@ function draw() {
 
     const canInstall = info && info.available && info.canInstall && !busy && progress?.status !== 'ready';
     host.innerHTML = `
-        <div class="panel-head"><strong>🔄 About &amp; updates</strong>
-            <span class="muted small">PhantomOps ${esc(state.version === 'dev' ? 'development build' : state.version)}</span></div>
         ${body}
         <label class="check"><input type="checkbox" id="upd-auto"> Check for updates automatically <span class="muted small">(an anonymous request to the GitHub Releases API at startup and every 12 hours; nothing is installed without you)</span></label>
         <div class="toolbar-actions">
