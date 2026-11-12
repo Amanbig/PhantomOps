@@ -69,6 +69,7 @@ export namespace config {
 	    enabled: boolean;
 	    socket: string;
 	    context: string;
+	    kubeconfig: string;
 	    url: string;
 	    query: string;
 	    token: string;
@@ -91,6 +92,7 @@ export namespace config {
 	        this.enabled = source["enabled"];
 	        this.socket = source["socket"];
 	        this.context = source["context"];
+	        this.kubeconfig = source["kubeconfig"];
 	        this.url = source["url"];
 	        this.query = source["query"];
 	        this.token = source["token"];
