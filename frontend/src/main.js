@@ -11,9 +11,11 @@ import {onUpdateAvailable} from './views/updates.js';
 import {renderTitleBar, initTitleBar} from './titlebar.js';
 import {initSidebar, setActive, refreshSidebar} from './sidebar.js';
 import {mountDashboard, leaveDashboard} from './views/dashboard.js';
+import {mountOverview, leaveOverview} from './views/overview.js';
 
 function show(view, opts = {}) {
     leaveDashboard();
+    leaveOverview();
     setActive(view, view === 'dashboard' ? (opts.connId || '') : '');
     const el = document.getElementById('view');
     document.getElementById('app-body').scrollTop = 0;
@@ -22,6 +24,11 @@ function show(view, opts = {}) {
         case 'activity': return mountActivity(el);
         case 'connections': return mountConnections(el, opts);
         case 'settings': return mountSettings(el);
+        case 'overview': return mountOverview(el, {
+            openIncident: id => show('incidents', id ? {focusId: id} : {}),
+            openDashboard: id => show('dashboard', {connId: id}),
+            goToConnections: () => show('connections', {add: true}),
+        });
         case 'dashboard': return mountDashboard(el, {
             connId: opts.connId,
             goToConnections: id => show('connections', {focusId: id}),
@@ -52,7 +59,7 @@ initSidebar(document.getElementById('sidebar'), show);
 onConnectionsChanged(refreshSidebar);
 onGotoSettings(() => show('settings'));
 EventsOn('scan:update', refreshSidebar);
-show('incidents');
+show('overview');
 
 GetAppVersion().then(v => { document.getElementById('app-version').textContent = v === 'dev' ? 'dev' : v; }).catch(() => {});
 const badge = document.getElementById('update-badge');

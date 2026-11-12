@@ -52,3 +52,32 @@ export function lineChart(series, {unit = '', height = 140, max} = {}) {
         <div class="chart-x">${xLabels}</div>
     </div>${legend}`;
 }
+
+// barChart renders stacked bars. buckets: [{label, values: {key: n}}];
+// keys: [{key, name, color}] in stacking order (bottom first).
+export function barChart(buckets, keys, {height = 120} = {}) {
+    const totals = buckets.map(b => keys.reduce((n, k) => n + (b.values[k.key] || 0), 0));
+    const max = Math.max(1, ...totals);
+    const bars = buckets.map((b, i) => {
+        let acc = 0;
+        const segs = keys.map(k => {
+            const v = b.values[k.key] || 0;
+            if (!v) return '';
+            const h = (v / max) * 100, y = 100 - ((acc + v) / max) * 100;
+            acc += v;
+            return `<rect x="${i * 10 + 1.5}" y="${y.toFixed(2)}" width="7" height="${h.toFixed(2)}" fill="${k.color}" rx="0.8"/>`;
+        }).join('');
+        const tip = `${b.label}: ${keys.map(k => `${b.values[k.key] || 0} ${k.name}`).join(', ')}`;
+        return `<g><title>${esc(tip)}</title><rect x="${i * 10}" y="0" width="10" height="100" fill="transparent"/>${segs}</g>`;
+    }).join('');
+    const n = buckets.length;
+    const xLabels = n ? [buckets[0].label, buckets[Math.floor(n / 2)].label, buckets[n - 1].label].map(l => `<span>${esc(l)}</span>`).join('') : '';
+    const yLabels = [max, Math.round(max / 2), 0].map(v => `<span>${v}</span>`).join('');
+    const legend = `<div class="chart-legend">${keys.map(k => `<span><i style="background:${k.color}"></i><em>${esc(k.name)}</em> <b>${buckets.reduce((s, b) => s + (b.values[k.key] || 0), 0)}</b></span>`).join('')}</div>`;
+    return `<div class="chart-box" style="--chart-h:${height}px">
+        <div class="chart-y">${yLabels}</div>
+        <svg class="chart" viewBox="0 0 ${n * 10} 100" preserveAspectRatio="none" role="img" aria-label="Bar chart">
+            <line x1="0" x2="${n * 10}" y1="100" y2="100" class="grid" vector-effect="non-scaling-stroke"/>${bars}</svg>
+        <div class="chart-x">${xLabels}</div>
+    </div>${legend}`;
+}
