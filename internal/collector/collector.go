@@ -17,3 +17,10 @@ type Collector interface {
 	// Implementations must respect ctx cancellation.
 	Collect(ctx context.Context, since time.Time) ([]model.Event, error)
 }
+
+// Snapshotter is implemented by collectors that can describe the current
+// state of what they connect to (for per-connection dashboards). Snapshots
+// are read-only.
+type Snapshotter interface {
+	Snapshot(ctx context.Context) (any, error)
+}

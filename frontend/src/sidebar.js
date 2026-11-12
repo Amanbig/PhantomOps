@@ -46,13 +46,13 @@ function render(settings, last) {
                 const h = c.enabled ? health[c.name] : null;
                 const dot = !c.enabled ? 'dot-off' : h ? (h.ok ? 'dot-ok' : 'dot-bad') : 'dot-idle';
                 const tip = !c.enabled ? 'Disabled' : h ? h.message : 'Not scanned yet';
-                return `<button class="sb-item sb-conn ${current === 'connections' && currentConn === c.id ? 'active' : ''}" data-view="connections" data-conn="${esc(c.id)}" title="${esc(c.name)}: ${esc(tip)}">
+                return `<button class="sb-item sb-conn ${current === 'dashboard' && currentConn === c.id ? 'active' : ''}" data-view="dashboard" data-conn="${esc(c.id)}" title="${esc(c.name)}: ${esc(tip)}">
                     <span class="sb-icon sb-emoji">${typeInfo(c.type).icon}</span>
                     <span class="sb-label">${esc(c.name)}</span>
                     <span class="dot ${dot}"></span></button>`;
             }).join('') : `<button class="sb-item sb-empty" data-view="connections">
                 <span class="sb-icon">${ICON.plug}</span><span class="sb-label">Connect a service</span></button>`}
-            ${conns.length ? item(currentConn ? 'connections-none' : 'connections', 'Manage connections', ICON.plug).replace('data-view="connections-none"', 'data-view="connections"') : ''}
+            ${conns.length ? item('connections', 'Manage connections', ICON.plug) : ''}
         </div>
         <div class="sb-section sb-bottom">
             ${item('settings', 'Settings', ICON.settings)}
@@ -67,7 +67,7 @@ export function initSidebar(el, navigate) {
         const b = e.target.closest('[data-view]');
         if (!b) return;
         const opts = {};
-        if (b.dataset.conn) opts.focusId = b.dataset.conn;
+        if (b.dataset.conn) opts.connId = b.dataset.conn;
         if (b.dataset.add) opts.add = true;
         go(b.dataset.view, opts);
     });

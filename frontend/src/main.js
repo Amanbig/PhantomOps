@@ -10,9 +10,11 @@ import {GetAppVersion, LastResult} from '../wailsjs/go/main/App';
 import {onUpdateAvailable} from './views/updates.js';
 import {renderTitleBar, initTitleBar} from './titlebar.js';
 import {initSidebar, setActive, refreshSidebar} from './sidebar.js';
+import {mountDashboard, leaveDashboard} from './views/dashboard.js';
 
 function show(view, opts = {}) {
-    setActive(view, view === 'connections' ? (opts.focusId || '') : '');
+    leaveDashboard();
+    setActive(view, view === 'dashboard' ? (opts.connId || '') : '');
     const el = document.getElementById('view');
     document.getElementById('app-body').scrollTop = 0;
     switch (view) {
@@ -20,6 +22,11 @@ function show(view, opts = {}) {
         case 'activity': return mountActivity(el);
         case 'connections': return mountConnections(el, opts);
         case 'settings': return mountSettings(el);
+        case 'dashboard': return mountDashboard(el, {
+            connId: opts.connId,
+            goToConnections: id => show('connections', {focusId: id}),
+            goToIncident: id => show('incidents', {focusId: id}),
+        });
         default: return mountIncidents(el, {goToConnections: () => show('connections'), ...opts});
     }
 }

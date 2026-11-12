@@ -279,3 +279,45 @@ select option { background-color: var(--panel); color: var(--text); }
 .hidden-incidents li, .mute-list li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
 .hidden-title { font-weight: 700; }
 .tag { display: inline-block; font-size: 11px; font-weight: 600; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 0 6px; margin-left: 6px; }
+
+/* ---- dashboards ---- */
+.dash-head { align-items: flex-start; }
+.dash-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.dash-icon { font-size: 30px; line-height: 1; }
+.dash-title .view-title { display: flex; align-items: center; gap: 8px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; border-top: 3px solid var(--border); }
+.tile.tone-ok { border-top-color: #3fbf7f; } .tile.tone-warn { border-top-color: var(--warning); } .tile.tone-bad { border-top-color: var(--critical); }
+.tile-value { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile-of { font-size: 15px; color: var(--muted); font-weight: 600; margin-left: 4px; }
+.tile-label { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-top: 4px; }
+.tile-sub { font-size: 12px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table-wrap { overflow-x: auto; margin: 0 -4px; }
+.dtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dtable th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; user-select: none; }
+.dtable th.sortable { cursor: pointer; } .dtable th.sortable:hover { color: var(--text); }
+.dtable td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.dtable tr:last-child td { border-bottom: 0; }
+.dtable tr.row-bad td:first-child { box-shadow: inset 3px 0 0 var(--critical); }
+.dtable .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dtable .w-meter { min-width: 170px; }
+.empty-row { text-align: center; padding: 18px; }
+.meter { height: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; margin-bottom: 3px; }
+.meter-fill { display: block; height: 100%; }
+.meter-fill.ok { background: #3fbf7f; } .meter-fill.warn { background: var(--warning); } .meter-fill.crit { background: var(--critical); }
+.meter-label { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip-ok { color: #7be0a4; border-color: #2f6b49; } .chip-bad { color: #ff8b97; border-color: var(--critical); }
+.chip-warn { color: #ffd59a; border-color: var(--warning); } .chip-off { color: var(--muted); }
+.ok-text { color: #7be0a4; } .bad-text { color: #ff8b97; } .warn-text { color: #ffd59a; font-weight: 700; }
+.seg { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+.seg-btn { background: transparent; border: 0; color: var(--muted); font: inherit; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+.seg-btn.active { background: var(--panel-2); color: var(--text); }
+.search { width: 200px; padding: 6px 10px !important; font-size: 13px !important; }
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; }
+.dash-grid .panel { margin-bottom: 0; }
+.warn-list { list-style: none; padding: 0; margin: 0; }
+.warn-list li { padding: 7px 0; border-top: 1px solid var(--border); }
+.warn-list li:first-child { border-top: 0; }
+.related-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.related-list a { color: var(--text); }
+.dash-error .error { margin: 0 0 10px; }
