@@ -8,7 +8,7 @@ they become the body of the GitHub Release.
 1. Write the notes for the new version in `RELEASE_NOTES.md` (first line: `# PhantomOps vX.Y.Z ...`).
 2. Run `./scripts/release.sh vX.Y.Z`. It bumps the version in `wails.json`, copies the notes to `releases/vX.Y.Z.md` and checks that the table below has a row for the version.
 3. Open a PR with those changes and merge it.
-4. Tag the merge commit: `git tag vX.Y.Z && git push origin vX.Y.Z`. The release workflow checks that the versions match, builds every platform, generates `SHA256SUMS` and publishes the GitHub Release.
+4. Tag the merge commit: `git tag vX.Y.Z && git push origin vX.Y.Z`. The release workflow builds every platform, generates `SHA256SUMS` and publishes the GitHub Release (code checks already ran on the PR).
 
 ---
 
