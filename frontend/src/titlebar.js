@@ -5,6 +5,7 @@
 // native traffic-light buttons are kept (see main.go), so the bar leaves room
 // for them and hides its own window buttons.
 import {Environment, WindowMinimise, WindowToggleMaximise, WindowIsMaximised, Quit} from '../wailsjs/runtime/runtime';
+import logoUrl from './assets/images/logo.svg';
 
 const ICONS = {
     minimise: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5h8" /></svg>',
@@ -18,7 +19,7 @@ export function renderTitleBar(tabsHTML) {
     return `
         <header class="titlebar" id="titlebar">
             <div class="tb-left">
-                <span class="tb-logo" aria-hidden="true">👻</span>
+                <img class="tb-logo" src="${logoUrl}" alt="" width="20" height="20" draggable="false">
                 <span class="tb-name" title="Your infrastructure is haunted. Find out what's killing it.">PhantomOps</span>
                 <span class="version" id="app-version"></span>
                 <button class="update-badge no-drag" id="update-badge" hidden>⬆ Update available</button>

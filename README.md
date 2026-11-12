@@ -51,6 +51,7 @@ Nomad, SSH) for exercising each collector.
 ```sh
 wails dev -tags webkit2_41    # live development (reports version "dev")
 wails build -tags webkit2_41  # local build
+python3 scripts/icons.py      # regenerate all icons after editing build/appicon*.svg
 ```
 
 ## Releasing
