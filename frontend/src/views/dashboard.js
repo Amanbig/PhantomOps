@@ -1,9 +1,10 @@
 import {GetSettings, ConnectionSnapshot, LastResult, TestConnection} from '../../wailsjs/go/main/App';
 import {esc} from '../util.js';
 import {typeInfo, scanHealth} from './connections.js';
+import {lineChart} from '../charts.js';
 
 const REFRESH_MS = 30000;
-const DASHBOARD_TYPES = new Set(['docker', 'kubernetes']);
+const DASHBOARD_TYPES = new Set(['docker', 'kubernetes', 'nomad', 'prometheus', 'loki', 'ssh']);
 
 // ---------- formatting ----------
 
@@ -33,8 +34,10 @@ function bar(value, max, label, {warn = 80, crit = 95} = {}) {
             <span class="meter-label">${esc(label)}</span>`;
 }
 
-function tile(label, value, sub = '', tone = '') {
-    return `<div class="tile ${tone}"><div class="tile-value">${value}</div><div class="tile-label">${esc(label)}</div>
+// tile renders a headline number. Pass text=true for word values (e.g. a
+// service name), which get a smaller, truncating style.
+function tile(label, value, sub = '', tone = '', text = false) {
+    return `<div class="tile ${tone}"><div class="tile-value ${text ? 'tile-text' : ''}"${text ? ` title="${value}"` : ''}>${value}</div><div class="tile-label">${esc(label)}</div>
         ${sub ? `<div class="tile-sub">${sub}</div>` : ''}</div>`;
 }
 
@@ -160,6 +163,176 @@ function renderKube(s, ui) {
         </div>`;
 }
 
+// ---------- nomad ----------
+
+function renderNomad(s, ui) {
+    const sm = s.summary;
+    const jobs = s.jobs.map(j => ({...j, __cls: j.healthy ? '' : 'row-bad'}));
+    const jobState = j => j.status === 'running' ? chip('running', j.healthy ? 'ok' : 'bad') : j.status === 'pending' ? chip('pending', 'warn') : chip(j.status || '?', j.healthy ? 'off' : 'bad');
+    return `
+        ${(s.partial || []).length ? `<div class="alert alert-warn"><span>Some data could not be read: ${esc(s.partial.join('; '))}</span></div>` : ''}
+        <div class="tiles">
+            ${tile('Nodes ready', `${sm.nodesReady}<span class="tile-of">/ ${sm.nodes}</span>`, `${esc(s.region || '')} · ${esc(s.datacenter || '')}`, sm.nodesReady < sm.nodes ? 'tone-bad' : 'tone-ok')}
+            ${tile('Jobs running', `${sm.jobsRunning}<span class="tile-of">/ ${sm.jobs}</span>`, 'jobs', '')}
+            ${tile('Jobs degraded', sm.jobsDegraded, 'failed, queued or stopped', sm.jobsDegraded ? 'tone-bad' : 'tone-ok')}
+            ${tile('Allocations', sm.allocsRunning, `${sm.allocsFailed} failed or lost (24 h)`, sm.allocsFailed ? 'tone-warn' : '')}
+            ${tile('Nomad', esc(s.version || '?'), 'agent version')}
+        </div>
+        <div class="panel"><div class="panel-head"><strong>Jobs</strong></div>
+            ${table('jobs', [
+                {key: 'id', label: 'Job', sort: j => j.namespace + '/' + j.id, html: j => `<span class="muted small">${esc(j.namespace)}/</span><strong>${esc(j.id)}</strong>`},
+                {key: 'type', label: 'Type', sort: j => j.type, html: j => esc(j.type)},
+                {key: 'status', label: 'Status', sort: j => j.status, html: jobState},
+                {key: 'running', label: 'Running', cls: 'num', sort: j => j.running, html: j => String(j.running)},
+                {key: 'failed', label: 'Failed', cls: 'num', sort: j => j.failed + j.lost, html: j => j.failed + j.lost ? `<span class="bad-text">${j.failed + j.lost}</span>` : '0'},
+                {key: 'queued', label: 'Queued', cls: 'num', sort: j => j.queued, html: j => j.queued ? `<span class="warn-text">${j.queued}</span>` : '0'},
+                {key: 'version', label: 'Version', cls: 'num', sort: j => j.version, html: j => `v${j.version}`},
+            ], jobs, ui.sort)}
+        </div>
+        <div class="dash-grid">
+            <div class="panel"><div class="panel-head"><strong>Failed &amp; restarting allocations</strong><span class="muted small">last 24 h</span></div>
+                ${table('allocs', [
+                    {key: 'job', label: 'Job', sort: a => a.job, html: a => `${esc(a.job)}<div class="muted small mono">${esc(a.id)} · ${esc(a.group)}</div>`},
+                    {key: 'status', label: 'Status', sort: a => a.status, html: a => chip(a.status === 'running' ? `restarting ×${a.restarts}` : a.status, a.status === 'running' ? 'warn' : 'bad')},
+                    {key: 'msg', label: 'Last event', html: a => `<span class="small">${esc(a.message || '—')}</span>`},
+                    {key: 'when', label: 'When', sort: a => -new Date(a.modified), html: a => `${since(a.modified)} ago`},
+                ], s.problemAllocs, ui.sort)}
+            </div>
+            <div class="panel"><div class="panel-head"><strong>Nodes</strong></div>
+                ${table('nnodes', [
+                    {key: 'name', label: 'Node', sort: n => n.name, html: n => `<strong>${esc(n.name)}</strong><div class="muted small">${esc(n.address)} · ${esc(n.datacenter)}</div>`},
+                    {key: 'status', label: 'Status', sort: n => n.status, html: n => chip(n.status, n.status === 'ready' ? 'ok' : 'bad') + (n.drain ? ' ' + chip('draining', 'warn') : '') + (!n.eligible ? ' ' + chip('ineligible', 'warn') : '')},
+                    {key: 'allocs', label: 'Running', cls: 'num', sort: n => n.runningAllocs, html: n => String(n.runningAllocs)},
+                ], s.nodes, ui.sort)}
+                ${s.deployments.length ? `<div class="panel-head" style="margin-top:14px"><strong>Deployments</strong></div>
+                    <ul class="warn-list">${s.deployments.map(d => `<li>${chip(d.status, d.status === 'failed' ? 'bad' : 'warn')} <strong>${esc(d.job)}</strong> v${d.version}
+                        <div class="small muted">${esc(d.description)}</div></li>`).join('')}</ul>` : ''}
+            </div>
+        </div>`;
+}
+
+// ---------- prometheus ----------
+
+function renderPrometheus(s, ui) {
+    const sm = s.summary;
+    const targets = s.targets.map(t => ({...t, __cls: t.health === 'up' ? '' : 'row-bad'}));
+    const chart = title => s.charts.find(c => c.title === title);
+    const panel = (title, opts = {}) => {
+        const c = chart(title);
+        return `<div class="panel"><div class="panel-head"><strong>${esc(title)}</strong><span class="muted small">last hour</span></div>
+            ${c ? lineChart(c.series, {unit: c.unit, ...opts}) : '<div class="chart-empty muted small">Not available on this server.</div>'}</div>`;
+    };
+    return `
+        ${(s.partial || []).length ? `<div class="alert alert-warn"><span>Some data could not be read: ${esc(s.partial.join('; '))}</span></div>` : ''}
+        <div class="tiles">
+            ${tile('Targets up', `${sm.targetsUp}<span class="tile-of">/ ${sm.targets}</span>`, `${sm.jobs} jobs`, sm.targetsUp < sm.targets ? 'tone-bad' : 'tone-ok')}
+            ${tile('Alerts firing', sm.firing, `${sm.pending} pending`, sm.firing ? 'tone-bad' : sm.pending ? 'tone-warn' : 'tone-ok')}
+            ${tile('Prometheus', esc(s.version || '?'), 'server version')}
+        </div>
+        ${s.alerts.length ? `<div class="panel"><div class="panel-head"><strong>Alerts</strong></div>
+            <ul class="warn-list">${s.alerts.map(a => `<li>${chip(a.state, a.state === 'firing' ? 'bad' : 'warn')} <strong>${esc(a.name)}</strong>
+                ${a.severity ? `<span class="muted small">${esc(a.severity)}</span>` : ''} <span class="muted small">since ${since(a.since)}</span>
+                ${a.summary ? `<div class="small muted">${esc(a.summary)}</div>` : ''}</li>`).join('')}</ul></div>` : ''}
+        <div class="dash-grid">
+            ${panel('Targets up', {max: 100})}
+            ${panel('Firing alerts')}
+        </div>
+        ${panel('Samples ingested')}
+        <div class="panel"><div class="panel-head"><strong>Scrape targets</strong></div>
+            ${table('targets', [
+                {key: 'job', label: 'Job', sort: t => t.job, html: t => `<strong>${esc(t.job)}</strong>`},
+                {key: 'instance', label: 'Instance', sort: t => t.instance, html: t => `<span class="mono small">${esc(t.instance)}</span>`},
+                {key: 'health', label: 'Health', sort: t => t.health, html: t => chip(t.health, t.health === 'up' ? 'ok' : 'bad')},
+                {key: 'dur', label: 'Scrape', cls: 'num', sort: t => t.durationMs, html: t => `${t.durationMs.toFixed(0)} ms`},
+                {key: 'last', label: 'Last scrape', sort: t => -new Date(t.lastScrape), html: t => isZero(t.lastScrape) ? '—' : `${since(t.lastScrape)} ago`},
+                {key: 'err', label: 'Error', html: t => t.lastError ? `<span class="small bad-text">${esc(t.lastError)}</span>` : '<span class="muted">—</span>'},
+            ], targets, ui.sort)}
+        </div>`;
+}
+
+// ---------- loki ----------
+
+function renderLoki(s, ui) {
+    const sm = s.summary;
+    const rate = sm.lines ? (sm.errors / sm.lines) * 100 : 0;
+    const services = s.services.map(v => ({...v, __cls: v.errorRate >= 50 && v.errors > 0 ? 'row-bad' : ''}));
+    return `
+        ${(s.partial || []).length ? `<div class="alert alert-warn"><span>Some data could not be read: ${esc(s.partial.join('; '))}</span></div>` : ''}
+        <div class="tiles">
+            ${tile('Services', sm.services, 'sending logs (1 h)')}
+            ${tile('Log lines', sm.lines.toLocaleString(), 'last hour')}
+            ${tile('Error lines', sm.errors.toLocaleString(), `${rate.toFixed(1)}% of all lines`, sm.errors ? 'tone-warn' : 'tone-ok')}
+            ${tile('Noisiest', sm.noisiest ? esc(sm.noisiest) : '—', 'most error lines', sm.noisiest ? 'tone-bad' : '', true)}
+            ${tile('Loki', esc(s.version || '?'), 'server version')}
+        </div>
+        <div class="panel"><div class="panel-head"><strong>Error lines per service</strong><span class="muted small">per 5 minutes · last hour</span></div>
+            ${lineChart(s.errorSeries, {})}</div>
+        <div class="dash-grid">
+            <div class="panel"><div class="panel-head"><strong>Services</strong><span class="muted small">last hour</span></div>
+                ${table('services', [
+                    {key: 'name', label: 'Service', sort: v => v.name, html: v => `<strong>${esc(v.name)}</strong>`},
+                    {key: 'lines', label: 'Lines', cls: 'num', sort: v => v.lines, html: v => v.lines.toLocaleString()},
+                    {key: 'errors', label: 'Errors', cls: 'num', sort: v => v.errors, html: v => v.errors ? `<span class="bad-text">${v.errors.toLocaleString()}</span>` : '0'},
+                    {key: 'rate', label: 'Error rate', cls: 'w-meter', sort: v => v.errorRate, html: v => bar(v.errorRate, 100, `${v.errorRate.toFixed(1)}%`, {warn: 5, crit: 25})},
+                ], services, ui.sort)}
+            </div>
+            <div class="panel"><div class="panel-head"><strong>Recent error lines</strong></div>
+                ${s.recentErrors.length ? `<ul class="log-list">${s.recentErrors.map(l => `<li><span class="muted small">${new Date(l.time).toISOString().slice(11, 19)}</span>
+                    <span class="chip">${esc(l.service)}</span><div class="mono small">${esc(l.line)}</div></li>`).join('')}</ul>` : '<p class="muted small">No error lines in the last hour.</p>'}
+            </div>
+        </div>`;
+}
+
+// ---------- ssh ----------
+
+function uptime(sec) {
+    const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+    return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+}
+
+function renderSSH(s, ui) {
+    const m = s.memory;
+    const used = m.total - m.available, swapUsed = m.swapTotal - m.swapFree;
+    const loadRatio = s.cpus ? s.load[0] / s.cpus : 0;
+    const fullest = s.disks[0];
+    const missing = s.ports.filter(p => !p.listening);
+    return `
+        ${(s.partial || []).length ? `<div class="alert alert-warn"><span>Some checks could not run: ${esc(s.partial.join('; '))}</span></div>` : ''}
+        <div class="tiles">
+            ${tile('Load (1 min)', s.load[0].toFixed(2), `${s.cpus} CPUs · ${s.load[1].toFixed(2)} / ${s.load[2].toFixed(2)} (5/15 min)`, loadRatio >= 2 ? 'tone-bad' : loadRatio >= 1 ? 'tone-warn' : 'tone-ok')}
+            ${tile('Memory used', `${Math.round(pct(used, m.total))}%`, `${bytes(used)} of ${bytes(m.total)}`, pct(used, m.total) >= 95 ? 'tone-bad' : pct(used, m.total) >= 90 ? 'tone-warn' : 'tone-ok')}
+            ${tile('Swap used', m.swapTotal ? `${Math.round(pct(swapUsed, m.swapTotal))}%` : '—', m.swapTotal ? `${bytes(swapUsed)} of ${bytes(m.swapTotal)}` : 'no swap', pct(swapUsed, m.swapTotal) >= 80 ? 'tone-bad' : pct(swapUsed, m.swapTotal) >= 50 ? 'tone-warn' : '')}
+            ${tile('Fullest disk', fullest ? `${fullest.usePercent}%` : '—', fullest ? esc(fullest.mount) : '', fullest?.usePercent >= 95 ? 'tone-bad' : fullest?.usePercent >= 85 ? 'tone-warn' : 'tone-ok')}
+            ${tile('Uptime', uptime(s.uptimeSec), esc(s.hostname || ''))}
+        </div>
+        <div class="panel"><div class="panel-head"><strong>Host</strong></div>
+            <div class="plan-grid">
+                <div class="label">Hostname</div><div>${esc(s.hostname || '—')}</div>
+                <div class="label">OS</div><div>${esc(s.os || '—')}</div>
+                <div class="label">Kernel</div><div class="mono small">${esc(s.kernel || '—')}</div>
+                <div class="label">Services</div><div>${!s.systemd ? '<span class="muted">systemd not available on this host</span>'
+                    : s.failedUnits.length ? s.failedUnits.map(u => chip(u, 'bad')).join(' ') : chip('no failed units', 'ok')}</div>
+                ${s.ports.length ? `<div class="label">Ports</div><div>${s.ports.map(p => chip(`${p.port} ${p.listening ? 'listening' : 'not listening'}`, p.listening ? 'ok' : 'bad')).join(' ')}</div>` : ''}
+            </div>
+            ${missing.length ? `<div class="alert alert-bad">Expected port${missing.length > 1 ? 's' : ''} ${missing.map(p => p.port).join(', ')} ${missing.length > 1 ? 'are' : 'is'} not listening.</div>` : ''}
+        </div>
+        <div class="dash-grid">
+            <div class="panel"><div class="panel-head"><strong>Disks</strong></div>
+                ${table('disks', [
+                    {key: 'mount', label: 'Mount', sort: d => d.mount, html: d => `<strong>${esc(d.mount)}</strong><div class="muted small mono">${esc(d.device)}</div>`},
+                    {key: 'use', label: 'Used', cls: 'w-meter', sort: d => d.usePercent, html: d => bar(d.usePercent, 100, `${d.usePercent}% · ${bytes(d.usedBytes)} / ${bytes(d.sizeBytes)}`, {warn: 85, crit: 95})},
+                ], s.disks, ui.sort)}
+            </div>
+            <div class="panel"><div class="panel-head"><strong>Top processes</strong><span class="muted small">by CPU</span></div>
+                ${table('procs', [
+                    {key: 'cmd', label: 'Command', sort: p => p.command, html: p => `<strong class="mono small">${esc(p.command)}</strong><div class="muted small">pid ${p.pid} · ${esc(p.user)}</div>`},
+                    {key: 'cpu', label: 'CPU', cls: 'num', sort: p => p.cpu, html: p => `${p.cpu.toFixed(1)}%`},
+                    {key: 'mem', label: 'Memory', cls: 'num', sort: p => p.mem, html: p => `${p.mem.toFixed(1)}%`},
+                ], s.processes, ui.sort)}
+            </div>
+        </div>`;
+}
+
 // ---------- page ----------
 
 // Each mount gets a token; navigating anywhere invalidates it, so a late
@@ -220,7 +393,8 @@ export async function mountDashboard(root, {connId, goToConnections, goToInciden
         } else if (!snap) {
             body = '<div class="panel"><p class="ai-pending"><span class="spinner"></span> Reading current state…</p></div>';
         } else {
-            body = snap.type === 'docker' ? renderDocker(snap, ui) : renderKube(snap, ui);
+            const renderers = {docker: renderDocker, kubernetes: renderKube, nomad: renderNomad, prometheus: renderPrometheus, loki: renderLoki, ssh: renderSSH};
+            body = (renderers[snap.type] || (() => '<p class="muted">Unknown dashboard type.</p>'))(snap, ui);
         }
 
         const relatedHTML = related.length ? `<div class="panel related"><div class="panel-head"><strong>Open incidents from this connection (${related.length})</strong></div>
