@@ -206,6 +206,8 @@ export async function mountIncidents(root, {goToConnections, focusId} = {}) {
                 + renderHidden(snoozed, muted);
         }
         content.querySelector('#goto-conn')?.addEventListener('click', goToConnections);
+        // Keep the sidebar's incident count and connection status in step.
+        window.dispatchEvent(new Event('phantom:refresh'));
         if (focusId) {
             const el = content.querySelector(`[data-incident="${CSS.escape(focusId)}"]`);
             if (el) { el.classList.add('incident-focus'); el.scrollIntoView({block: 'start'}); }

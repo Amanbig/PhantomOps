@@ -2,46 +2,49 @@ import './style.css';
 import './app.css';
 
 import {mountIncidents} from './views/incidents.js';
-import {mountConnections} from './views/connections.js';
+import {mountConnections, mountSettings, onConnectionsChanged, onGotoSettings} from './views/connections.js';
 import {mountActivity} from './views/activity.js';
 import {mountHistory} from './views/history.js';
 import {EventsOn} from '../wailsjs/runtime/runtime';
-import {GetAppVersion} from '../wailsjs/go/main/App';
+import {GetAppVersion, LastResult} from '../wailsjs/go/main/App';
 import {onUpdateAvailable} from './views/updates.js';
 import {renderTitleBar, initTitleBar} from './titlebar.js';
+import {initSidebar, setActive, refreshSidebar} from './sidebar.js';
 
-const TABS = [
-    {id: 'incidents', label: 'Incidents'},
-    {id: 'history', label: 'History'},
-    {id: 'connections', label: 'Connections'},
-    {id: 'activity', label: 'Activity'},
-];
-
-function show(tab, opts = {}) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    const view = document.getElementById('view');
-    if (tab === 'incidents') mountIncidents(view, {goToConnections: () => show('connections'), ...opts});
-    else if (tab === 'history') mountHistory(view, opts);
-    else if (tab === 'activity') mountActivity(view);
-    else mountConnections(view);
+function show(view, opts = {}) {
+    setActive(view, view === 'connections' ? (opts.focusId || '') : '');
+    const el = document.getElementById('view');
+    document.getElementById('app-body').scrollTop = 0;
+    switch (view) {
+        case 'history': return mountHistory(el, opts);
+        case 'activity': return mountActivity(el);
+        case 'connections': return mountConnections(el, opts);
+        case 'settings': return mountSettings(el);
+        default: return mountIncidents(el, {goToConnections: () => show('connections'), ...opts});
+    }
 }
 
 // Clicking a desktop notification opens the incident (or its history entry
 // if it is no longer open).
 EventsOn('notify:open', async id => {
-    const {LastResult} = await import('../wailsjs/go/main/App');
     const last = await LastResult().catch(() => null);
     const open = (last?.incidents || []).some(i => i.id === id);
     show(open ? 'incidents' : 'history', {focusId: id});
 });
 
 document.querySelector('#app').innerHTML = `
-    ${renderTitleBar(TABS.map(t => `<button class="tab" data-tab="${t.id}">${t.label}</button>`).join(''))}
-    <div class="app-body" id="app-body">
-        <div class="shell"><main id="view"></main></div>
+    ${renderTitleBar()}
+    <div class="app-main">
+        <nav class="sidebar" id="sidebar" aria-label="Navigation"></nav>
+        <div class="app-body" id="app-body">
+            <div class="shell"><main id="view"></main></div>
+        </div>
     </div>`;
 initTitleBar();
-document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => show(t.dataset.tab)));
+initSidebar(document.getElementById('sidebar'), show);
+onConnectionsChanged(refreshSidebar);
+onGotoSettings(() => show('settings'));
+EventsOn('scan:update', refreshSidebar);
 show('incidents');
 
 GetAppVersion().then(v => { document.getElementById('app-version').textContent = v === 'dev' ? 'dev' : v; }).catch(() => {});
@@ -51,6 +54,6 @@ onUpdateAvailable(info => {
     badge.textContent = `⬆ ${info.latestVersion} available`;
 });
 badge.addEventListener('click', () => {
-    show('connections');
+    show('settings');
     setTimeout(() => document.getElementById('updates-panel')?.scrollIntoView({block: 'start'}), 150);
 });
