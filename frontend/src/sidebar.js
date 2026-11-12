@@ -6,6 +6,7 @@ import {esc} from './util.js';
 import {typeInfo, scanHealth} from './views/connections.js';
 
 const ICON = {
+    overview: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
     incidents: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>',
     history: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
     activity: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>',
@@ -16,7 +17,7 @@ const ICON = {
 
 let host = null;
 let go = () => {};
-let current = 'incidents';
+let current = 'overview';
 let currentConn = '';
 let cached = null; // [settings, last] from the latest refresh
 
@@ -35,6 +36,7 @@ function render(settings, last) {
     host.innerHTML = `
         <div class="sb-section">
             <div class="sb-heading">Monitor</div>
+            ${item('overview', 'Overview', ICON.overview)}
             ${item('incidents', 'Incidents', ICON.incidents, count)}
             ${item('history', 'History', ICON.history)}
             ${item('activity', 'Activity', ICON.activity)}

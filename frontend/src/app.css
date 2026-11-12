@@ -339,3 +339,24 @@ select option { background-color: var(--panel); color: var(--text); }
 .log-list li { padding: 7px 0; border-top: 1px solid var(--border); }
 .log-list li:first-child { border-top: 0; }
 .log-list .mono { margin-top: 3px; word-break: break-word; }
+
+/* ---- overview ---- */
+.ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.ov-grid .panel { margin-bottom: 0; }
+.ov-list { list-style: none; padding: 0; margin: 0; }
+.ov-list li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); }
+.ov-list li:first-child { border-top: 0; }
+.ov-list .badge { flex-shrink: 0; margin-top: 2px; }
+.ov-main { min-width: 0; }
+.ov-main a { color: var(--text); font-weight: 600; }
+.ov-clear { text-align: center; padding: 18px 0 6px; }
+.ov-conns { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.ov-conn { display: flex; align-items: center; gap: 12px; text-align: left; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; color: var(--text); font: inherit; cursor: pointer; min-width: 0; }
+.ov-conn:hover { border-color: var(--accent); }
+.ov-conn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ov-conn.bad { border-color: rgba(255, 77, 94, .55); }
+.ov-conn-icon { font-size: 24px; flex-shrink: 0; }
+.ov-conn-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.ov-conn-main strong, .ov-conn-state { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-conn-state { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+.ov-conn-state .dot { flex-shrink: 0; }
