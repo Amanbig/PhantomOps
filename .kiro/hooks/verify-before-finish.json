@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Remind to run full verification before finishing",
+      "trigger": "Stop",
+      "action": {
+        "type": "agent",
+        "prompt": "Before finishing: if Go or frontend code changed, make sure gofmt, go vet -tags webkit2_41, go test ./internal/..., and the frontend build were run (see .kiro/steering/tech.md). Report honestly what was and was not verified."
+      }
+    }
+  ]
+}
