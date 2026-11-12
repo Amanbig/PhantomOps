@@ -1,28 +1,29 @@
-# PhantomOps v0.2.1 👻
+# PhantomOps v0.2.2 👻
 
-PhantomOps **v0.2.1** is a patch release: it fixes **Kubernetes connections failing in the installed app**, makes permission problems explain themselves, and makes the **Settings** page easier to navigate.
-
----
-
-### 🔧 Fixes
-
-#### Kubernetes: "permission denied" on `/etc/rancher/k3s/k3s.yaml`
-- Installed from a package and started from the desktop menu, a Kubernetes connection could fail with `Unable to read /etc/rancher/k3s/k3s.yaml … permission denied`, while running from a terminal worked. Apps started from the menu do not read your shell's startup files, so the `KUBECONFIG` variable set there was missing, and on k3s machines `kubectl` then falls back to a root-only file.
-- PhantomOps now finds the kubeconfig itself, in this order: the connection's own setting, `$KUBECONFIG`, `~/.kube/config`, then `kubectl`'s default. This applies to scans, dashboards, rollbacks and "Detect local services".
-- Kubernetes connections have a new **kubeconfig file** field for cases where the automatic lookup is not enough. A wrong path is reported clearly instead of falling back silently.
-
-#### Clear errors for permission problems
-- If no usable kubeconfig is found, the message now says how to create one (`~/.kube/config`) instead of showing raw `kubectl` output.
-- Docker connection errors now explain themselves: no access to the Docker socket (add your user to the `docker` group), Docker not running, or a stopped daemon.
+PhantomOps **v0.2.2** is a patch release: connections now show their **real service logos**, Settings gets a **Support & community** card, and the project has the usual open-source community files.
 
 ---
 
 ### ✨ Improvements
 
-#### Collapsible Settings
-- Each section of **Settings** is a collapsible card. Opening Settings shows only the top one (AI investigator) open; the others show a one-line summary of their current state (for example "Every 5 min · notifications on").
-- The on/off switches stay in each card's header, so you can change them without expanding the card.
-- The update badge in the title bar opens Settings straight on **About & updates**.
+#### Real service logos
+- Connections, the sidebar, the Overview and the dashboards now show the real Docker, Kubernetes, Nomad and Prometheus logos instead of emoji. Loki and SSH use simple glyphs drawn for PhantomOps.
+- Logos are used only to identify the services; they are trademarks of their owners (see the README).
+
+#### Support & community
+- New **Support & community** card in Settings: sponsor the project, report a bug, contribute, or report a security issue. Links open in your browser.
+
+---
+
+### 🔧 Fixes
+- The empty bar chart showed y-axis labels "1, 1, 0"; it now shows "1" and "0".
+- Internal: generated frontend bindings now include the Kubernetes `kubeconfig` field.
+
+---
+
+### 🤝 Project
+- Added issue forms, a pull request template, `CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY` and a sponsor file.
+- Release descriptions now end with a short sponsor/issues note.
 
 ---
 

@@ -16,7 +16,8 @@ they become the body of the GitHub Release.
 
 | Version | Type | Highlights | Release notes |
 | :--- | :--- | :--- | :---: |
-| **v0.2.1** | *Current* · Patch release | Fixes Kubernetes failing in the installed app (kubeconfig lookup, new kubeconfig field); actionable errors for kubeconfig and Docker socket permission problems; collapsible Settings cards | [v0.2.1.md](v0.2.1.md) |
+| **v0.2.2** | *Current* · Patch release | Real service logos for connections; Support & community card in Settings; community files (issue forms, contributing, security, sponsor); empty chart axis fix | [v0.2.2.md](v0.2.2.md) |
+| **v0.2.1** | Patch release | Fixes Kubernetes failing in the installed app (kubeconfig lookup, new kubeconfig field); actionable errors for kubeconfig and Docker socket permission problems; collapsible Settings cards | [v0.2.1.md](v0.2.1.md) |
 | **v0.2.0** | Minor release | Sidebar navigation with live connection status; Overview page; dashboards for Docker, Kubernetes, Nomad, Prometheus, Loki and SSH with charts; separate Settings page; Loki no longer counts its own query logs as errors | [v0.2.0.md](v0.2.0.md) |
 | **v0.1.2** | Minor release | Acknowledge, snooze & mute incidents; custom title bar in a frameless window (native traffic lights on macOS); new PhantomOps app icon on every platform with full Linux icon set; NVIDIA/Mesa rendering fix for the portable build; consistent UTC times | [v0.1.2.md](v0.1.2.md) |
 | **v0.1.1** | First published release | Docker, Kubernetes, Nomad, Prometheus, Loki and SSH collectors; correlation engine with rule-based root cause; Connections UI; optional AI investigator (Ollama / OpenAI-compatible); reviewed Kubernetes & Nomad rollbacks with audit log; background monitoring, incident history and desktop notifications; verified in-app updates; fixed Linux release build; PR checks; Apache 2.0 | [v0.1.1.md](v0.1.1.md) |
