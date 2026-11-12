@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"PhantomOps/internal/collector/docker"
+	"PhantomOps/internal/kubeconfig"
 )
 
 // Discover looks for services on this machine and returns suggested
@@ -44,7 +45,9 @@ func Discover(ctx context.Context) []Connection {
 		cctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 		var buf bytes.Buffer
-		cmd := exec.CommandContext(cctx, "kubectl", "config", "get-contexts", "-o", "name")
+		cmd := kubeconfig.Command("", func() *exec.Cmd {
+			return exec.CommandContext(cctx, "kubectl", "config", "get-contexts", "-o", "name")
+		})
 		cmd.Stdout = &buf
 		if cmd.Run() != nil {
 			return

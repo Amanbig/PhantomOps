@@ -354,7 +354,7 @@ func (a *App) executorFor(inv model.Investigation) (remediate.Executor, error) {
 	}
 	switch {
 	case conn.Type == config.TypeKubernetes && inv.TargetSource == "kubernetes":
-		return remediate.NewKube(conn.Name, conn.Context), nil
+		return remediate.NewKube(conn.Name, conn.Context, conn.Kubeconfig), nil
 	case conn.Type == config.TypeNomad && inv.TargetSource == "nomad":
 		return remediate.NewNomad(conn.Name, conn.URL, conn.Token), nil
 	}

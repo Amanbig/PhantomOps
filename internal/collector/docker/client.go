@@ -7,11 +7,14 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
+	"syscall"
 	"time"
 )
 
@@ -20,11 +23,12 @@ const DefaultSocket = "/var/run/docker.sock"
 
 // apiClient is a minimal Docker Engine API client over a unix socket.
 type apiClient struct {
-	http *http.Client
+	http   *http.Client
+	socket string
 }
 
 func newAPIClient(socket string) *apiClient {
-	return &apiClient{http: &http.Client{
+	return &apiClient{socket: socket, http: &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -46,7 +50,7 @@ func (c *apiClient) get(ctx context.Context, path string, q url.Values) ([]byte,
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, c.explain(err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
@@ -57,6 +61,23 @@ func (c *apiClient) get(ctx context.Context, path string, q url.Values) ([]byte,
 		return nil, fmt.Errorf("docker api %s: %s: %s", path, resp.Status, bytes.TrimSpace(body))
 	}
 	return body, nil
+}
+
+// explain turns the common socket failures into something a person can fix.
+func (c *apiClient) explain(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		err = ue.Err // drop the request URL; it is the same for every call
+	}
+	switch {
+	case errors.Is(err, fs.ErrPermission):
+		return fmt.Errorf("permission denied on %s: your user may not use Docker. Add it to the docker group with  sudo usermod -aG docker $USER  then log out and back in (or point this connection at a socket you can read): %w", c.socket, err)
+	case errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("no Docker socket at %s: is Docker (or Podman's Docker socket) running? %w", c.socket, err)
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return fmt.Errorf("Docker is not accepting connections on %s: is the daemon running? %w", c.socket, err)
+	}
+	return err
 }
 
 func (c *apiClient) getJSON(ctx context.Context, path string, q url.Values, out any) error {

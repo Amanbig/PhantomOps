@@ -13,8 +13,12 @@ const TYPES = {
     kubernetes: {
         label: 'Kubernetes', icon: '☸️',
         blurb: 'Pods, events, rollouts and memory (works with k3s). Uses kubectl.',
-        fields: [{key: 'context', label: 'kubectl context', placeholder: '(current context)',
-            help: 'Leave empty to use the current context.'}],
+        fields: [
+            {key: 'context', label: 'kubectl context', placeholder: '(current context)',
+                help: 'Leave empty to use the current context.'},
+            {key: 'kubeconfig', label: 'kubeconfig file', placeholder: '(automatic)',
+                help: 'Leave empty to use $KUBECONFIG, then ~/.kube/config. Set it if the app cannot find your cluster, e.g. when started from the desktop menu.'},
+        ],
     },
     prometheus: {
         label: 'Prometheus', icon: '🔥',
@@ -134,7 +138,7 @@ function cloneConfig() {
 function summary(c) {
     switch (c.type) {
         case 'docker': return c.socket || '/var/run/docker.sock';
-        case 'kubernetes': return c.context ? `context: ${c.context}` : 'current kubectl context';
+        case 'kubernetes': return (c.context ? `context: ${c.context}` : 'current kubectl context') + (c.kubeconfig ? ` · ${c.kubeconfig}` : '');
         case 'ssh': return `${c.user}@${c.addr}` + (c.expectedPorts?.length ? ` · ports ${c.expectedPorts.join(', ')}` : '');
         default: return c.url;
     }
@@ -142,7 +146,7 @@ function summary(c) {
 
 function sameTarget(a, b) {
     return a.type === b.type && (a.socket || '') === (b.socket || '') && (a.context || '') === (b.context || '') &&
-        (a.url || '') === (b.url || '') && (a.addr || '') === (b.addr || '');
+        (a.url || '') === (b.url || '') && (a.addr || '') === (b.addr || '') && (a.kubeconfig || '') === (b.kubeconfig || '');
 }
 
 // ---------- rendering ----------
@@ -373,7 +377,7 @@ function readForm() {
 
 function blankConn(type) {
     const t = TYPES[type];
-    return {id: '', type, name: t.label, enabled: true, socket: '', context: '', url: '', query: '', token: '',
+    return {id: '', type, name: t.label, enabled: true, socket: '', context: '', kubeconfig: '', url: '', query: '', token: '',
         addr: '', user: '', keyPath: '', knownHosts: '', insecure: false, expectedPorts: []};
 }
 

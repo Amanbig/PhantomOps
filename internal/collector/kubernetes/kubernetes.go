@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"PhantomOps/internal/kubeconfig"
 	"PhantomOps/internal/model"
 )
 
@@ -33,9 +34,15 @@ type Collector struct {
 }
 
 // New creates a collector. kubeContext may be empty to use the current
-// context; namespace may be empty for all namespaces.
+// context.
 func New(kubeContext string) *Collector {
-	return NewWithRunner(kubectlRunner(kubeContext))
+	return NewWithKubeconfig(kubeContext, "")
+}
+
+// NewWithKubeconfig is New with an explicit kubeconfig file. When kubeconfig
+// is empty it is resolved from $KUBECONFIG, then ~/.kube/config.
+func NewWithKubeconfig(kubeContext, kubeconfigPath string) *Collector {
+	return NewWithRunner(kubectlRunner(kubeContext, kubeconfigPath))
 }
 
 // NewWithRunner creates a collector with a custom kubectl runner.
@@ -43,16 +50,19 @@ func NewWithRunner(r Runner) *Collector {
 	return &Collector{run: r, now: func() time.Time { return time.Now().UTC() }}
 }
 
-func kubectlRunner(kubeContext string) Runner {
+func kubectlRunner(kubeContext, kubeconfigPath string) Runner {
 	return func(ctx context.Context, args ...string) ([]byte, error) {
+		if err := kubeconfig.Check(kubeconfigPath); err != nil {
+			return nil, err
+		}
 		if kubeContext != "" {
 			args = append([]string{"--context", kubeContext}, args...)
 		}
-		cmd := exec.CommandContext(ctx, "kubectl", args...)
+		cmd := kubeconfig.Command(kubeconfigPath, func() *exec.Cmd { return exec.CommandContext(ctx, "kubectl", args...) })
 		var out, errb bytes.Buffer
 		cmd.Stdout, cmd.Stderr = &out, &errb
 		if err := cmd.Run(); err != nil {
-			return nil, fmt.Errorf("kubectl %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(errb.String()))
+			return nil, fmt.Errorf("kubectl %s: %w: %s", strings.Join(args, " "), err, kubeconfig.Explain(errb.String()))
 		}
 		return out.Bytes(), nil
 	}

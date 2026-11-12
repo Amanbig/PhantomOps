@@ -55,9 +55,12 @@ type Connection struct {
 
 	Socket  string `json:"socket"`  // docker
 	Context string `json:"context"` // kubernetes
-	URL     string `json:"url"`     // prometheus, loki, nomad
-	Query   string `json:"query"`   // loki (LogQL, optional)
-	Token   string `json:"token"`   // nomad ACL token (secret)
+	// Kubeconfig is an optional kubeconfig file for kubernetes connections.
+	// Empty means: $KUBECONFIG, then ~/.kube/config, then kubectl's default.
+	Kubeconfig string `json:"kubeconfig"`
+	URL        string `json:"url"`   // prometheus, loki, nomad
+	Query      string `json:"query"` // loki (LogQL, optional)
+	Token      string `json:"token"` // nomad ACL token (secret)
 
 	Addr          string `json:"addr"` // ssh host[:port]
 	User          string `json:"user"`
@@ -301,6 +304,7 @@ func (c *Config) Normalize() {
 		cn.User = strings.TrimSpace(cn.User)
 		cn.Socket = strings.TrimSpace(cn.Socket)
 		cn.Context = strings.TrimSpace(cn.Context)
+		cn.Kubeconfig = strings.TrimSpace(cn.Kubeconfig)
 		cn.KeyPath = strings.TrimSpace(cn.KeyPath)
 		cn.KnownHosts = strings.TrimSpace(cn.KnownHosts)
 	}
@@ -388,7 +392,7 @@ func (cn Connection) Collector() (collector.Collector, error) {
 		}
 		return docker.New(socket), nil
 	case TypeKubernetes:
-		return kubernetes.New(cn.Context), nil
+		return kubernetes.NewWithKubeconfig(cn.Context, cn.Kubeconfig), nil
 	case TypePrometheus:
 		return prometheus.New(cn.URL, nil), nil
 	case TypeLoki:
