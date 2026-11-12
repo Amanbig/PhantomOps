@@ -72,7 +72,9 @@ export function barChart(buckets, keys, {height = 120} = {}) {
     }).join('');
     const n = buckets.length;
     const xLabels = n ? [buckets[0].label, buckets[Math.floor(n / 2)].label, buckets[n - 1].label].map(l => `<span>${esc(l)}</span>`).join('') : '';
-    const yLabels = [max, Math.round(max / 2), 0].map(v => `<span>${v}</span>`).join('');
+    // Whole-number ticks only: with a maximum of 1 there is no whole-number midpoint.
+    const mid = max > 1 ? String(Math.round(max / 2)) : '';
+    const yLabels = [String(max), mid, '0'].map(v => `<span>${v}</span>`).join('');
     const legend = `<div class="chart-legend">${keys.map(k => `<span><i style="background:${k.color}"></i><em>${esc(k.name)}</em> <b>${buckets.reduce((s, b) => s + (b.values[k.key] || 0), 0)}</b></span>`).join('')}</div>`;
     return `<div class="chart-box" style="--chart-h:${height}px">
         <div class="chart-y">${yLabels}</div>

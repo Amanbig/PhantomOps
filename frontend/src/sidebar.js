@@ -3,7 +3,8 @@
 // happens (see refreshSidebar callers).
 import {GetSettings, LastResult} from '../wailsjs/go/main/App';
 import {esc} from './util.js';
-import {typeInfo, scanHealth} from './views/connections.js';
+import {scanHealth} from './views/connections.js';
+import {logo} from './logos.js';
 
 const ICON = {
     overview: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
@@ -49,7 +50,7 @@ function render(settings, last) {
                 const dot = !c.enabled ? 'dot-off' : h ? (h.ok ? 'dot-ok' : 'dot-bad') : 'dot-idle';
                 const tip = !c.enabled ? 'Disabled' : h ? h.message : 'Not scanned yet';
                 return `<button class="sb-item sb-conn ${current === 'dashboard' && currentConn === c.id ? 'active' : ''}" data-view="dashboard" data-conn="${esc(c.id)}" title="${esc(c.name)}: ${esc(tip)}">
-                    <span class="sb-icon sb-emoji">${typeInfo(c.type).icon}</span>
+                    <span class="sb-icon">${logo(c.type, 18)}</span>
                     <span class="sb-label">${esc(c.name)}</span>
                     <span class="dot ${dot}"></span></button>`;
             }).join('') : `<button class="sb-item sb-empty" data-view="connections">

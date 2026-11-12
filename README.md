@@ -68,3 +68,8 @@ its description. It refuses a tag that does not match the version in `wails.json
 ## License
 
 Copyright 2026 Amanbig. Licensed under the [Apache License, Version 2.0](LICENSE).
+
+### Trademarks
+The Docker, Kubernetes, Nomad and Prometheus logos shown in the app (from [Simple Icons](https://github.com/simple-icons/simple-icons), CC0) and the
+names Loki, Grafana and SSH belong to their respective owners and are used only to identify the services PhantomOps connects
+to. PhantomOps is not affiliated with or endorsed by them. Details: [`frontend/src/assets/connections/README.md`](frontend/src/assets/connections/README.md).
