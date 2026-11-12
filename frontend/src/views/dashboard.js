@@ -2,6 +2,7 @@ import {GetSettings, ConnectionSnapshot, LastResult, TestConnection} from '../..
 import {esc} from '../util.js';
 import {typeInfo, scanHealth} from './connections.js';
 import {lineChart} from '../charts.js';
+import {logo} from '../logos.js';
 
 const REFRESH_MS = 30000;
 const DASHBOARD_TYPES = new Set(['docker', 'kubernetes', 'nomad', 'prometheus', 'loki', 'ssh']);
@@ -403,7 +404,7 @@ export async function mountDashboard(root, {connId, goToConnections, goToInciden
 
         root.innerHTML = `
             <div class="toolbar dash-head">
-                <div class="dash-title"><span class="dash-icon">${t.icon}</span>
+                <div class="dash-title"><span class="dash-icon">${logo(conn.type, 34)}</span>
                     <div><h2 class="view-title">${esc(conn.name)} <span class="dot ${dot}"></span></h2>
                         <div class="muted small">${esc(t.label)} · <span class="mono">${esc(target)}</span>${updated && snap ? ` · updated ${updated.toISOString().slice(11, 19)} UTC` : ''}</div></div></div>
                 <div class="toolbar-actions">

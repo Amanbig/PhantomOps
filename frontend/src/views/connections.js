@@ -1,17 +1,18 @@
 import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, GetMonitorStatus, LastResult, GetAppVersion, PendingUpdate} from '../../wailsjs/go/main/App';
 import {esc} from '../util.js';
+import {logo} from '../logos.js';
 import {mountUpdates} from './updates.js';
 
 // Describes each connectable service and the form fields it needs.
 const TYPES = {
     docker: {
-        label: 'Docker / Podman', icon: '🐳',
+        label: 'Docker / Podman',
         blurb: 'Container state, restarts, OOM kills, memory and error logs.',
         fields: [{key: 'socket', label: 'Socket path', placeholder: '/var/run/docker.sock',
             help: 'Leave empty for the default. Podman works through its Docker-compatible socket.'}],
     },
     kubernetes: {
-        label: 'Kubernetes', icon: '☸️',
+        label: 'Kubernetes',
         blurb: 'Pods, events, rollouts and memory (works with k3s). Uses kubectl.',
         fields: [
             {key: 'context', label: 'kubectl context', placeholder: '(current context)',
@@ -21,12 +22,12 @@ const TYPES = {
         ],
     },
     prometheus: {
-        label: 'Prometheus', icon: '🔥',
+        label: 'Prometheus',
         blurb: 'Metric anomalies: memory growth, targets down, firing alerts, 5xx rates.',
         fields: [{key: 'url', label: 'URL', placeholder: 'http://localhost:9090', required: true}],
     },
     loki: {
-        label: 'Loki', icon: '📜',
+        label: 'Loki',
         blurb: 'Error-looking log lines grouped per service.',
         fields: [
             {key: 'url', label: 'URL', placeholder: 'http://localhost:3100', required: true},
@@ -34,7 +35,7 @@ const TYPES = {
         ],
     },
     nomad: {
-        label: 'Nomad', icon: '🧩',
+        label: 'Nomad',
         blurb: 'Job and allocation status, task failures and OOM kills.',
         fields: [
             {key: 'url', label: 'URL', placeholder: 'http://localhost:4646', required: true},
@@ -43,7 +44,7 @@ const TYPES = {
         ],
     },
     ssh: {
-        label: 'SSH host', icon: '🔑',
+        label: 'SSH host',
         blurb: 'Read-only diagnostics: load, memory, disk, failed units, OOM, open ports.',
         fields: [
             {key: 'addr', label: 'Host', placeholder: 'web-01.example.com:22', required: true},
@@ -81,7 +82,7 @@ let onChange = () => {};
 
 // typeInfo returns the label and icon of a connection type (used by the sidebar).
 export function typeInfo(type) {
-    return TYPES[type] || {label: type, icon: '❔'};
+    return TYPES[type] || {label: type};
 }
 
 // onConnectionsChanged registers a callback run after settings are saved.
@@ -214,12 +215,12 @@ function render() {
 }
 
 function renderCard(c) {
-    const t = TYPES[c.type] || {label: c.type, icon: '❔'};
+    const t = TYPES[c.type] || {label: c.type};
     const h = state.health[c.id] || (c.enabled ? state.scanHealth[c.name] : null);
     const dot = h ? (h.ok ? 'dot-ok' : 'dot-bad') : 'dot-idle';
     return `
         <div class="conn-card ${c.enabled ? '' : 'conn-off'}" data-id="${esc(c.id)}">
-            <div class="conn-icon">${t.icon}</div>
+            <div class="conn-icon">${logo(c.type, 28)}</div>
             <div class="conn-main">
                 <div class="conn-name"><span class="dot ${dot}"></span>${esc(c.name)}
                     <span class="chip">${esc(t.label)}</span></div>
@@ -242,7 +243,7 @@ function renderDetected(existing) {
             <button class="btn btn-small btn-secondary" id="close-detected">Close</button></div>
         ${fresh.length ? fresh.map((d, i) => {
             const t = TYPES[d.type];
-            return `<div class="detected-row"><span>${t.icon} ${esc(d.name)} <span class="muted small">${esc(summary(d))}</span></span>
+            return `<div class="detected-row"><span class="detected-name">${logo(d.type, 18)} ${esc(d.name)} <span class="muted small">${esc(summary(d))}</span></span>
                 <button class="btn btn-small" data-add-detected="${i}">Add</button></div>`;
         }).join('') + (fresh.length > 1 ? '<button class="btn btn-small" id="add-all">Add all</button>' : '')
         : '<p class="muted">Nothing new found. Everything detected is already connected.</p>'}
@@ -350,14 +351,14 @@ function renderForm() {
         return `<div class="overlay" id="overlay"><div class="modal">
             <div class="modal-head"><h3>Add connection</h3><button class="btn btn-small btn-secondary" data-close>✕</button></div>
             <div class="type-grid">${Object.entries(TYPES).map(([k, t]) => `
-                <button class="type-card" data-type="${k}"><div class="type-icon">${t.icon}</div>
+                <button class="type-card" data-type="${k}"><div class="type-icon">${logo(k, 30)}</div>
                 <strong>${esc(t.label)}</strong><span class="muted small">${esc(t.blurb)}</span></button>`).join('')}
             </div></div></div>`;
     }
     const t = TYPES[f.type];
     const c = f.conn;
     return `<div class="overlay" id="overlay"><div class="modal">
-        <div class="modal-head"><h3>${t.icon} ${f.editing ? 'Edit' : 'Add'} ${esc(t.label)}</h3>
+        <div class="modal-head"><h3 class="modal-title">${logo(f.type, 22)} ${f.editing ? 'Edit' : 'Add'} ${esc(t.label)}</h3>
             <button class="btn btn-small btn-secondary" data-close>✕</button></div>
         <form id="conn-form" autocomplete="off">
             <label>Name<input name="name" required value="${esc(c.name)}"></label>

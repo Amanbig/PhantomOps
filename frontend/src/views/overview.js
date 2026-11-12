@@ -2,6 +2,7 @@ import {GetSettings, LastResult, GetHistory, GetMonitorStatus, Scan} from '../..
 import {EventsOn} from '../../wailsjs/runtime/runtime';
 import {esc} from '../util.js';
 import {typeInfo, scanHealth} from './connections.js';
+import {logo} from '../logos.js';
 import {barChart} from '../charts.js';
 
 const DAY = 24 * 3600 * 1000;
@@ -163,7 +164,7 @@ export async function mountOverview(root, {openIncident, openDashboard, goToConn
                     const state = !c.enabled ? 'Disabled' : h ? (h.ok ? 'Healthy' : 'Failing') : 'Not scanned yet';
                     const n = perConn[c.name] || 0;
                     return `<button class="ov-conn ${h && !h.ok ? 'bad' : ''}" data-conn="${esc(c.id)}" title="${esc(h && !h.ok ? `${c.name}: ${h.message}` : `Open the ${c.name} dashboard`)}">
-                        <span class="ov-conn-icon">${typeInfo(c.type).icon}</span>
+                        <span class="ov-conn-icon">${logo(c.type, 26)}</span>
                         <span class="ov-conn-main"><strong>${esc(c.name)}</strong>
                             <span class="muted small">${esc(typeInfo(c.type).label)}</span>
                             <span class="small ${h && !h.ok ? 'bad-text' : 'muted'} ov-conn-state"><span class="dot ${dot}"></span> ${esc(h && !h.ok ? h.message : state)}</span></span>
