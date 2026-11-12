@@ -19,6 +19,7 @@ import (
 	"PhantomOps/internal/llm"
 	"PhantomOps/internal/model"
 	"PhantomOps/internal/remediate"
+	"PhantomOps/internal/updater"
 )
 
 // aiEvent is the name of the UI event emitted when an AI analysis finishes.
@@ -89,6 +90,9 @@ type App struct {
 	monitorWake chan struct{}
 	notify      func(id, title, body string, data map[string]any) error
 	notifyErr   string
+
+	updater       *updater.Updater
+	pendingUpdate *updater.Info
 }
 
 // RollbackPreview is what the user reviews before approving a rollback.
@@ -123,6 +127,7 @@ func (a *App) startup(ctx context.Context) {
 	a.history = h
 	a.initNotifications()
 	go a.monitorLoop()
+	a.initUpdater()
 }
 
 // reload re-reads the config file and rebuilds the engine.

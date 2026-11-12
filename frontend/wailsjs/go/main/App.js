@@ -10,12 +10,20 @@ export function AuditLog(arg1) {
   return window['go']['main']['App']['AuditLog'](arg1);
 }
 
+export function CheckForUpdates() {
+  return window['go']['main']['App']['CheckForUpdates']();
+}
+
 export function ClearResolvedHistory() {
   return window['go']['main']['App']['ClearResolvedHistory']();
 }
 
 export function DetectServices() {
   return window['go']['main']['App']['DetectServices']();
+}
+
+export function GetAppVersion() {
+  return window['go']['main']['App']['GetAppVersion']();
 }
 
 export function GetHistory() {
@@ -34,12 +42,28 @@ export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function GetUpdateProgress() {
+  return window['go']['main']['App']['GetUpdateProgress']();
+}
+
+export function InstallUpdate(arg1) {
+  return window['go']['main']['App']['InstallUpdate'](arg1);
+}
+
 export function LastResult() {
   return window['go']['main']['App']['LastResult']();
 }
 
+export function PendingUpdate() {
+  return window['go']['main']['App']['PendingUpdate']();
+}
+
 export function PreviewRollback(arg1) {
   return window['go']['main']['App']['PreviewRollback'](arg1);
+}
+
+export function RestartApp() {
+  return window['go']['main']['App']['RestartApp']();
 }
 
 export function SaveSettings(arg1) {

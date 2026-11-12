@@ -1,0 +1,31 @@
+# Linux packages (.deb / .rpm). Built by .github/workflows/release.yml:
+#   cd build/linux && VERSION=0.1.0 nfpm package --config nfpm.yaml --packager deb --target ../../phantomops-linux-amd64.deb
+name: "phantomops"
+arch: "amd64"
+platform: "linux"
+version: "${VERSION}"
+section: "admin"
+priority: "optional"
+maintainer: "Amanbig <amanpreetsinghjhiwant@outlook.com>"
+description: "PhantomOps - the ghost hunter for your infrastructure. Correlates Docker, Kubernetes, Nomad, Prometheus, Loki and SSH signals into incidents with root-cause analysis."
+homepage: "https://github.com/Amanbig/PhantomOps"
+
+contents:
+  - src: ../bin/PhantomOps
+    dst: /usr/bin/phantomops
+    file_info:
+      mode: 0755
+  - src: phantomops.desktop
+    dst: /usr/share/applications/phantomops.desktop
+  - src: ../appicon.png
+    dst: /usr/share/icons/hicolor/512x512/apps/phantomops.png
+
+depends:
+  - libgtk-3-0
+  - libwebkit2gtk-4.1-0
+
+overrides:
+  rpm:
+    depends:
+      - gtk3
+      - webkit2gtk4.1
