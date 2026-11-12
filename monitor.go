@@ -162,6 +162,11 @@ func (a *App) sendNotifications(changes []history.Change, minSeverity string) {
 		if !severityAtLeast(r.Severity, minSeverity) {
 			continue
 		}
+		// Muted and snoozed incidents stay silent. (Acknowledged ones still
+		// notify: an escalation matters even when someone is on it.)
+		if a.history != nil && a.history.Suppressed(r) {
+			continue
+		}
 		cause := r.Latest.Investigation.RootCause
 		if len(cause) > 180 {
 			cause = cause[:180] + "…"

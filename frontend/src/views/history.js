@@ -1,4 +1,4 @@
-import {GetHistory, ClearResolvedHistory} from '../../wailsjs/go/main/App';
+import {GetHistory, ClearResolvedHistory, MuteRules, UnmuteIncident} from '../../wailsjs/go/main/App';
 import {esc, clock} from '../util.js';
 
 function duration(from, to) {
@@ -42,6 +42,7 @@ export async function mountHistory(root, {focusId} = {}) {
             <button class="btn btn-secondary" id="hist-refresh">Refresh</button>
         </div></div>
         <p class="muted small">Incidents are kept across scans and restarts. One resolves after it has been absent for two complete scans. Resolved incidents are kept for 30 days.</p>
+        <div id="mute-rules"></div>
         <div id="hist-body"><p class="muted">Loading…</p></div>`;
     const body = root.querySelector('#hist-body');
     const filter = root.querySelector('#hist-filter');
@@ -60,7 +61,10 @@ export async function mountHistory(root, {focusId} = {}) {
                 <button class="hist-head" aria-expanded="${expanded.has(r.id)}">
                     <span class="badge badge-${esc(r.severity)}">${esc(r.severity)}</span>
                     <span class="hist-title">${esc(r.title)}</span>
-                    <span class="hist-status ${r.status}">${r.status === 'open' ? '● Open' : '✓ Resolved'}</span>
+                    <span class="hist-status ${r.status}">${r.status === 'open' ? '● Open' : '✓ Resolved'}
+                        ${r.muted ? '<span class="tag">muted</span>' : ''}
+                        ${r.snoozedUntil && new Date(r.snoozedUntil) > new Date() ? '<span class="tag">snoozed</span>' : ''}
+                        ${r.ackBy ? `<span class="tag" title="Acknowledged by ${esc(r.ackBy)}">ack · ${esc(r.ackBy)}</span>` : ''}</span>
                     <span class="muted small hist-times">
                         ${esc(when(r.firstSeen))} · ${r.status === 'open' ? `open for ${duration(r.firstSeen, new Date())}` : `lasted ${duration(r.firstSeen, r.lastSeen)}`}
                         · ${r.scans} scan${r.scans === 1 ? '' : 's'}${r.reopened ? ` · came back ${r.reopened}×` : ''}
@@ -79,9 +83,25 @@ export async function mountHistory(root, {focusId} = {}) {
         }
     }
 
+    async function loadMutes() {
+        const el = root.querySelector('#mute-rules');
+        const rules = await MuteRules().catch(() => []) || [];
+        el.innerHTML = rules.length ? `<div class="panel"><div class="panel-head"><strong>🔕 Muted (${rules.length})</strong></div>
+            <p class="muted small" style="margin-top:0">These incidents are hidden from the Incidents tab and never notify.</p>
+            <ul class="mute-list">${rules.map(m => `<li><span class="hidden-title">${esc(m.title)}</span>
+                <span class="muted small">${esc(m.environment)} · muted by ${esc(m.by)} ${esc(new Date(m.at).toISOString().slice(0, 16).replace('T', ' '))} UTC</span>
+                <button class="btn-link" data-unmute="${esc(m.key)}">Unmute</button></li>`).join('')}</ul></div>` : '';
+        el.querySelectorAll('[data-unmute]').forEach(b => b.addEventListener('click', async () => {
+            b.disabled = true;
+            try { await UnmuteIncident(b.dataset.unmute); } catch (err) { alert(String(err)); }
+            await load();
+        }));
+    }
+
     async function load() {
         try {
             records = await GetHistory() || [];
+            await loadMutes();
             render();
         } catch (err) {
             body.innerHTML = `<p class="error">${esc(String(err))}</p>`;
