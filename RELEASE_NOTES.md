@@ -1,33 +1,38 @@
-# PhantomOps v0.1.2 👻
+# PhantomOps v0.2.0 👻
 
-PhantomOps **v0.1.2** adds **incident triage** (acknowledge, snooze and mute), a **custom title bar** in a frameless window, and a **new PhantomOps app icon** across every platform. It is also the first release delivered through the **in-app updater**: if you are on v0.1.1, open *Connections → About & updates* to install it.
+PhantomOps **v0.2.0** turns PhantomOps from an incident list into a full monitoring console: a **sidebar** with live connection status, a **dashboard for every connected service** (Docker, Kubernetes, Nomad, Prometheus, Loki and SSH), and a new **Overview** that shows what is wrong and where at a glance.
 
 ---
 
 ### ✨ What's new
 
-#### 🔕 Acknowledge, snooze and mute incidents
-- **Acknowledge** an incident to show someone is on it ("✓ Acknowledged by you · 5 min ago", with Undo). Acknowledged incidents still notify you if they escalate.
-- **Snooze** for 1, 4 or 24 hours: the incident is hidden and silent until the snooze ends, then returns on its own. *Show now* ends it early.
-- **Mute** hides and silences every incident with the same title in the same environment until you unmute it. Muted incidents are listed in *History → Muted*, where you can unmute them.
-- Snoozed and muted incidents are kept in a collapsed "hidden" list on the Incidents tab, so nothing disappears silently.
-- If a resolved incident comes back, its acknowledgement and snooze are cleared: it is a new occurrence nobody has looked at yet.
+#### 🧭 Sidebar navigation
+- Navigation moves from the title bar to a sidebar: **Overview**, **Incidents** (with a live count of open incidents, red when any is critical), **History** and **Activity**.
+- Every connection is listed with a **live status dot**: green healthy, red failing (the error is in the tooltip), hollow disabled. Add a connection with **+**.
+- **Settings** has its own page: AI investigator, monitoring, remediation, analysis and updates. The Connections page now only manages connections.
+- On narrow windows the sidebar shrinks to icons.
 
-#### 🪟 Custom title bar
-- PhantomOps now draws its own title bar: logo, name, version and update badge on the left, the section tabs in the middle, and minimise / maximise / close on the right. Drag the bar to move the window; double-click it to maximise.
-- Windows keeps its shadow, rounded corners and snap layouts. macOS keeps its native traffic-light buttons.
+#### 📊 Overview
+- Open incidents by severity, connections healthy, incidents resolved in the last 24 hours with the average time to resolve, and triage counts.
+- **Needs attention**: the open incidents, critical first, one click away.
+- **Incidents, last 24 h**: new incidents per hour, by severity.
+- A card per connection with its health and open-incident count, and the **noisiest services** of the day.
 
-#### 👻 New app icon
-- A PhantomOps ghost replaces the default Wails logo in the window, task bar, Windows executable, macOS app and Linux menus.
-- Linux packages install the icon at every standard size (16 to 512 px), with a simplified design at small sizes so it stays legible.
+#### 🖥 A dashboard for every connection
+Click a connection in the sidebar to see its live state (read-only), its open incidents, and a fix-it path when it is failing.
+- **Docker**: running, unhealthy and failed containers; per-container CPU, memory against its limit, health, restarts, exit codes and ports; filter, search and sort.
+- **Kubernetes**: node readiness with CPU and memory use (via metrics-server), deployment readiness, problem pods with the reason (CrashLoopBackOff, ImagePullBackOff, OOMKilled, …) and the last hour's warnings.
+- **Nomad**: nodes, jobs with running / failed / queued allocations, failing or restarting allocations with their last event, failed deployments.
+- **Prometheus**: scrape targets and their errors, firing and pending alerts, and charts for targets up, firing alerts and ingestion rate.
+- **Loki**: log volume and error lines per service, error rate, an errors-per-service chart and the latest error lines.
+- **SSH hosts**: OS, uptime, load against CPU count, memory, swap, disks, failed systemd units, expected ports and the busiest processes (fixed, read-only commands only).
 
 ---
 
 ### 🔧 Fixes & improvements
-- Fixed blank or failing rendering on some NVIDIA/Mesa Linux setups ("KMS: DRM_IOCTL_MODE_CREATE_DUMB failed: Permission denied") for the portable `.tar.gz` build; the `.deb`/`.rpm` already included the workaround.
-- All times in the app are now shown in UTC, consistently.
-- The incident history file is upgraded automatically; history from v0.1.1 is kept.
-- The bundled Wails JavaScript runtime matches the Wails version the app is built with.
+- **Loki no longer counts PhantomOps' own queries as errors.** Loki logs every query it runs, and those queries contain words like "error", so they were being reported as error lines. Both incidents and the dashboard now ignore them.
+- Docker containers without a memory limit are no longer shown as using a percentage of the host's RAM.
+- Connection cards show health from the last scan without needing a manual test.
 
 ---
 
