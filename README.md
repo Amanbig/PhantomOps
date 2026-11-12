@@ -59,9 +59,10 @@ wails build -tags webkit2_41  # local build
 2. `./scripts/release.sh vX.Y.Z`: sets the version in `wails.json` and archives the notes in `releases/`.
 3. Merge that in a PR, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
 
-The [release workflow](.github/workflows/release.yml) runs only for version tags. It checks formatting, vet,
-tests and that all version references match the tag, builds Linux, Windows and macOS packages, generates
-`SHA256SUMS` and publishes the GitHub Release with `RELEASE_NOTES.md` as its description.
+[Checks](.github/workflows/checks.yml) (gofmt, vet, tests, frontend and app build, release metadata) run on
+pull requests. The [release workflow](.github/workflows/release.yml) runs only for version tags and just builds
+and publishes: Linux, Windows and macOS packages, `SHA256SUMS`, and a GitHub Release with `RELEASE_NOTES.md` as
+its description. It refuses a tag that does not match the version in `wails.json`.
 
 ## License
 

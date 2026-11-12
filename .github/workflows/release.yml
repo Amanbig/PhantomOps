@@ -1,10 +1,10 @@
 name: Release
 
-# Publishing a release:
-#   1. ./scripts/release.sh v0.2.0   (bumps the version, archives the notes)
-#   2. merge that PR, then: git tag v0.2.0 && git push origin v0.2.0
-# Nothing runs on branch pushes or pull requests. workflow_dispatch builds the
-# packages without publishing (useful to test packaging).
+# Builds and publishes. Checks run on pull requests (checks.yml), so the code
+# being tagged has already been verified; this workflow does not repeat them.
+#   1. ./scripts/release.sh v0.2.0 in a PR (bumps the version, archives the notes)
+#   2. merge it, then: git tag v0.2.0 && git push origin v0.2.0
+# workflow_dispatch builds the packages without publishing.
 on:
   push:
     tags: ['v*']
@@ -18,62 +18,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  checks:
-    name: Checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      # The root package (Wails GUI) needs GTK/WebKit; it is compiled by the
-      # build jobs below. Here we check everything else.
-      - name: gofmt
-        run: |
-          out="$(gofmt -l $(git ls-files '*.go'))"
-          if [ -n "$out" ]; then echo "Unformatted files:"; echo "$out"; exit 1; fi
-      - name: go vet
-        run: go vet ./internal/... ./cmd/...
-      - name: go test
-        run: go test ./internal/... ./cmd/...
-      - name: Frontend build
-        working-directory: frontend
-        run: npm ci && npm run build
-
-      - name: Version consistency
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          tag="${GITHUB_REF_NAME}"
-          ver="${tag#v}"
-          if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "Tag $tag is not a vMAJOR.MINOR.PATCH version"; exit 1
-          fi
-          wails_ver="$(jq -r '.info.productVersion' wails.json)"
-          if [ "$wails_ver" != "$ver" ]; then
-            echo "wails.json productVersion is $wails_ver but the tag is $tag. Run scripts/release.sh $tag."; exit 1
-          fi
-          if ! head -n 1 RELEASE_NOTES.md | grep -q "$tag"; then
-            echo "RELEASE_NOTES.md does not start with a $tag heading."; exit 1
-          fi
-          if ! cmp -s RELEASE_NOTES.md "releases/$tag.md"; then
-            echo "releases/$tag.md is missing or differs from RELEASE_NOTES.md. Run scripts/release.sh $tag."; exit 1
-          fi
-          if ! grep -q "\*\*$tag\*\*" releases/README.md; then
-            echo "releases/README.md has no row for $tag."; exit 1
-          fi
-
   build:
     name: Build (${{ matrix.platform }})
-    needs: checks
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -106,9 +52,20 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # Not a check: it decides the version baked into the binary. A tag that
+      # disagrees with wails.json would ship binaries that report the wrong
+      # version (and the in-app updater would offer the same release forever).
       - name: Version
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then v="$GITHUB_REF_NAME"; else v="dev"; fi
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            v="$GITHUB_REF_NAME"
+            want="v$(jq -r '.info.productVersion' wails.json)"
+            if [ "$v" != "$want" ]; then
+              echo "Tag $v does not match wails.json ($want). Run scripts/release.sh $v in a PR first."; exit 1
+            fi
+          else
+            v="dev"
+          fi
           echo "APP_VERSION=$v" >> "$GITHUB_ENV"
           echo "Building PhantomOps $v"
 
@@ -126,7 +83,7 @@ jobs:
         run: |
           go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.0
           if [ "${{ runner.os }}" = "Linux" ]; then
-            go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+            go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.46.0  # newest nfpm that builds with Go 1.25 (go.mod)
           fi
 
       - name: Build

@@ -1,0 +1,80 @@
+name: Checks
+
+# Runs on pull requests only. Code reaches main through reviewed PRs, so it is
+# not re-checked on push to main, and tags only build and publish
+# (see release.yml).
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  code:
+    name: Go & frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: gofmt
+        run: |
+          out="$(gofmt -l $(git ls-files '*.go'))"
+          if [ -n "$out" ]; then echo "Unformatted files:"; echo "$out"; exit 1; fi
+
+      # The frontend must be built before the Go app: it is embedded with go:embed.
+      - name: Frontend build
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      - name: GTK / WebKit headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: go vet
+        run: go vet -tags webkit2_41 ./...
+      - name: go test
+        run: go test -tags webkit2_41 ./...
+      - name: Build app
+        run: go build -tags webkit2_41 -o /tmp/phantomops .
+
+  release-metadata:
+    name: Release metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Keeps main always ready to tag: wails.json, RELEASE_NOTES.md, the
+      # releases/ archive and the history table must agree on the version.
+      - name: Version consistency
+        run: |
+          ver="$(jq -r '.info.productVersion' wails.json)"
+          tag="v$ver"
+          echo "wails.json version: $tag"
+          if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "wails.json info.productVersion '$ver' is not MAJOR.MINOR.PATCH"; exit 1
+          fi
+          if ! head -n 1 RELEASE_NOTES.md | grep -q "$tag"; then
+            echo "RELEASE_NOTES.md does not start with a $tag heading."; exit 1
+          fi
+          if ! cmp -s RELEASE_NOTES.md "releases/$tag.md"; then
+            echo "releases/$tag.md is missing or differs from RELEASE_NOTES.md. Run scripts/release.sh $tag."; exit 1
+          fi
+          if ! grep -q "\*\*$tag\*\*" releases/README.md; then
+            echo "releases/README.md has no row for $tag."; exit 1
+          fi
