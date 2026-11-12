@@ -62,3 +62,7 @@ wails build -tags webkit2_41  # local build
 The [release workflow](.github/workflows/release.yml) runs only for version tags. It checks formatting, vet,
 tests and that all version references match the tag, builds Linux, Windows and macOS packages, generates
 `SHA256SUMS` and publishes the GitHub Release with `RELEASE_NOTES.md` as its description.
+
+## License
+
+Copyright 2026 Amanbig. Licensed under the [Apache License, Version 2.0](LICENSE).

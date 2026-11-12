@@ -9,6 +9,7 @@ priority: "optional"
 maintainer: "Amanbig <amanpreetsinghjhiwant@outlook.com>"
 description: "PhantomOps - the ghost hunter for your infrastructure. Correlates Docker, Kubernetes, Nomad, Prometheus, Loki and SSH signals into incidents with root-cause analysis."
 homepage: "https://github.com/Amanbig/PhantomOps"
+license: "Apache-2.0"
 
 contents:
   - src: ../bin/PhantomOps
