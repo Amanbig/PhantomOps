@@ -1,58 +1,41 @@
-# PhantomOps v0.1.1 👻
+# PhantomOps v0.1.2 👻
 
-**Your infrastructure is haunted. Find out what's killing it.**
-
-**v0.1.1 is the first published release of PhantomOps**: a desktop app that connects to your Docker, Kubernetes, Nomad, Prometheus, Loki and SSH hosts, correlates what it sees into incident timelines, explains the most likely root cause, and can roll back a bad deployment after you review and approve it.
-
-> **About v0.1.0:** the `v0.1.0` tag exists, but its Linux packaging step failed, so it was never published. v0.1.1 contains everything planned for v0.1.0, plus the fixes below.
-
-### 🔧 Changes since the v0.1.0 tag
-- Fixed the Linux release build: the packaging tool (nfpm) is now pinned to a version that works with the project's Go toolchain.
-- Code checks now run on every pull request (gofmt, vet, tests, frontend and full app build, release metadata). Tagged releases only build and publish, and refuse a tag that does not match the app version.
-- PhantomOps is licensed under Apache 2.0.
+PhantomOps **v0.1.2** adds **incident triage** (acknowledge, snooze and mute), a **custom title bar** in a frameless window, and a **new PhantomOps app icon** across every platform. It is also the first release delivered through the **in-app updater**: if you are on v0.1.1, open *Connections → About & updates* to install it.
 
 ---
 
-### ✨ Highlights
+### ✨ What's new
 
-#### 🔌 Connect your infrastructure
-- **Six integrations**: Docker / Podman (containers, restarts, OOM kills, memory, healthchecks, error logs), Kubernetes incl. k3s (pods, events, rollouts, memory vs limits), Nomad (jobs, allocations, task failures, deployments), Prometheus (PromQL rules: memory growth, targets down, firing alerts, 5xx rates), Loki (error lines per service) and SSH hosts (load, memory, disk, failed units, kernel OOM, open ports; read-only allowlisted commands, host keys verified).
-- **Connections tab**: add, test, edit, enable/disable and delete connections; **Detect local services** finds Docker, kubectl contexts and local Prometheus / Loki / Nomad.
-- Settings are stored with owner-only permissions; secrets are masked in the UI.
+#### 🔕 Acknowledge, snooze and mute incidents
+- **Acknowledge** an incident to show someone is on it ("✓ Acknowledged by you · 5 min ago", with Undo). Acknowledged incidents still notify you if they escalate.
+- **Snooze** for 1, 4 or 24 hours: the incident is hidden and silent until the snooze ends, then returns on its own. *Show now* ends it early.
+- **Mute** hides and silences every incident with the same title in the same environment until you unmute it. Muted incidents are listed in *History → Muted*, where you can unmute them.
+- Snoozed and muted incidents are kept in a collapsed "hidden" list on the Incidents tab, so nothing disappears silently.
+- If a resolved incident comes back, its acknowledgement and snooze are cleared: it is a new occurrence nobody has looked at yet.
 
-#### 🧠 Correlation & root cause
-- Events from all sources are grouped into incidents by time and service, and ordered into a timeline.
-- Rule-based diagnosis with confidence and evidence: deployment regression, startup failure, memory exhaustion, dependency exhaustion, unhealthy service, crash loop and host pressure.
+#### 🪟 Custom title bar
+- PhantomOps now draws its own title bar: logo, name, version and update badge on the left, the section tabs in the middle, and minimise / maximise / close on the right. Drag the bar to move the window; double-click it to maximise.
+- Windows keeps its shadow, rounded corners and snap layouts. macOS keeps its native traffic-light buttons.
 
-#### 🤖 Optional AI investigator
-- Ollama (local) or any OpenAI-compatible API can double-check the diagnosis. Answers must cite real timeline events and may only name services present in your data; anything else is rejected.
-- Off by default. A banner shows whether incident data stays local or would be sent to a remote endpoint.
+#### 👻 New app icon
+- A PhantomOps ghost replaces the default Wails logo in the window, task bar, Windows executable, macOS app and Linux menus.
+- Linux packages install the icon at every standard size (16 to 512 px), with a simplified design at small sizes so it stays legible.
 
-#### 🛠 Reviewed rollbacks
-- Roll a Kubernetes Deployment or Nomad service job back to its previous revision from the incident.
-- Off by default. Every rollback shows a preview of exactly what will change, requires typing the workload name, uses a single-use approval that expires after 2 minutes, re-checks the target just before acting, and is refused for first-ever deploys, identical revisions and system namespaces.
-- **Activity** tab and append-only audit log: the intent is recorded before anything changes.
+---
 
-#### ⏱ Monitoring, history & notifications
-- Optional background scans every N minutes while the app is open.
-- **History** tab: incidents are kept across scans and restarts, with first/last seen, duration and status. An incident resolves after two clean scans; partial scans never resolve anything.
-- Desktop notifications for new, escalated, returning and resolved incidents (critical only by default).
-
-#### 🔄 In-app updates
-- PhantomOps checks GitHub Releases for new versions (can be turned off) and installs them from the app. Every download is verified against the release's `SHA256SUMS` before it is installed. Development builds are never replaced.
+### 🔧 Fixes & improvements
+- Fixed blank or failing rendering on some NVIDIA/Mesa Linux setups ("KMS: DRM_IOCTL_MODE_CREATE_DUMB failed: Permission denied") for the portable `.tar.gz` build; the `.deb`/`.rpm` already included the workaround.
+- All times in the app are now shown in UTC, consistently.
+- The incident history file is upgraded automatically; history from v0.1.1 is kept.
+- The bundled Wails JavaScript runtime matches the Wails version the app is built with.
 
 ---
 
 ### 📦 Downloads
-- **Linux**: `phantomops-linux-amd64.deb` (Debian, Ubuntu, Mint, Pop!_OS), `phantomops-linux-amd64.rpm` (Fedora, RHEL, openSUSE), `phantomops-linux-amd64.tar.gz` (portable)
-- **Windows**: `phantomops-windows-amd64-installer.exe` (installer), `phantomops-windows-amd64.zip` (portable)
-- **macOS**: `phantomops-darwin-universal.dmg`, `phantomops-darwin-universal.zip` (Intel & Apple Silicon)
+- **Linux**: `phantomops-linux-amd64.deb`, `phantomops-linux-amd64.rpm`, `phantomops-linux-amd64.tar.gz`
+- **Windows**: `phantomops-windows-amd64-installer.exe`, `phantomops-windows-amd64.zip`
+- **macOS**: `phantomops-darwin-universal.dmg`, `phantomops-darwin-universal.zip`
 - `SHA256SUMS`: checksums for every file above
 
 ### 📄 License
 PhantomOps is open source under the **Apache License 2.0**.
-
-### ⚠ Known limitations
-- Linux and Windows builds are not code-signed; macOS builds are not notarized, so Gatekeeper will warn on first launch.
-- Monitoring runs only while the app is open.
-- Kubernetes rollbacks revert the pod template only (not ConfigMaps or Secrets).
