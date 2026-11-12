@@ -495,3 +495,14 @@ func onPath(bin string) bool {
 	_, err := exec.LookPath(bin)
 	return err == nil
 }
+
+// Snapshotter returns the connection's dashboard data source, or ok=false
+// when that connection type has no dashboard yet.
+func (cn Connection) Snapshotter() (s collector.Snapshotter, ok bool, err error) {
+	col, err := cn.Collector()
+	if err != nil {
+		return nil, false, err
+	}
+	s, ok = col.(collector.Snapshotter)
+	return s, ok, nil
+}

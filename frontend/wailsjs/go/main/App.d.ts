@@ -18,6 +18,8 @@ export function CheckForUpdates():Promise<updater.Info>;
 
 export function ClearResolvedHistory():Promise<void>;
 
+export function ConnectionSnapshot(arg1:string):Promise<any>;
+
 export function DetectServices():Promise<Array<config.Connection>>;
 
 export function GetAppVersion():Promise<string>;

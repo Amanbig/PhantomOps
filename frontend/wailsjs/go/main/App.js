@@ -22,6 +22,10 @@ export function ClearResolvedHistory() {
   return window['go']['main']['App']['ClearResolvedHistory']();
 }
 
+export function ConnectionSnapshot(arg1) {
+  return window['go']['main']['App']['ConnectionSnapshot'](arg1);
+}
+
 export function DetectServices() {
   return window['go']['main']['App']['DetectServices']();
 }
