@@ -1,38 +1,28 @@
-# PhantomOps v0.2.0 👻
+# PhantomOps v0.2.1 👻
 
-PhantomOps **v0.2.0** turns PhantomOps from an incident list into a full monitoring console: a **sidebar** with live connection status, a **dashboard for every connected service** (Docker, Kubernetes, Nomad, Prometheus, Loki and SSH), and a new **Overview** that shows what is wrong and where at a glance.
-
----
-
-### ✨ What's new
-
-#### 🧭 Sidebar navigation
-- Navigation moves from the title bar to a sidebar: **Overview**, **Incidents** (with a live count of open incidents, red when any is critical), **History** and **Activity**.
-- Every connection is listed with a **live status dot**: green healthy, red failing (the error is in the tooltip), hollow disabled. Add a connection with **+**.
-- **Settings** has its own page: AI investigator, monitoring, remediation, analysis and updates. The Connections page now only manages connections.
-- On narrow windows the sidebar shrinks to icons.
-
-#### 📊 Overview
-- Open incidents by severity, connections healthy, incidents resolved in the last 24 hours with the average time to resolve, and triage counts.
-- **Needs attention**: the open incidents, critical first, one click away.
-- **Incidents, last 24 h**: new incidents per hour, by severity.
-- A card per connection with its health and open-incident count, and the **noisiest services** of the day.
-
-#### 🖥 A dashboard for every connection
-Click a connection in the sidebar to see its live state (read-only), its open incidents, and a fix-it path when it is failing.
-- **Docker**: running, unhealthy and failed containers; per-container CPU, memory against its limit, health, restarts, exit codes and ports; filter, search and sort.
-- **Kubernetes**: node readiness with CPU and memory use (via metrics-server), deployment readiness, problem pods with the reason (CrashLoopBackOff, ImagePullBackOff, OOMKilled, …) and the last hour's warnings.
-- **Nomad**: nodes, jobs with running / failed / queued allocations, failing or restarting allocations with their last event, failed deployments.
-- **Prometheus**: scrape targets and their errors, firing and pending alerts, and charts for targets up, firing alerts and ingestion rate.
-- **Loki**: log volume and error lines per service, error rate, an errors-per-service chart and the latest error lines.
-- **SSH hosts**: OS, uptime, load against CPU count, memory, swap, disks, failed systemd units, expected ports and the busiest processes (fixed, read-only commands only).
+PhantomOps **v0.2.1** is a patch release: it fixes **Kubernetes connections failing in the installed app**, makes permission problems explain themselves, and makes the **Settings** page easier to navigate.
 
 ---
 
-### 🔧 Fixes & improvements
-- **Loki no longer counts PhantomOps' own queries as errors.** Loki logs every query it runs, and those queries contain words like "error", so they were being reported as error lines. Both incidents and the dashboard now ignore them.
-- Docker containers without a memory limit are no longer shown as using a percentage of the host's RAM.
-- Connection cards show health from the last scan without needing a manual test.
+### 🔧 Fixes
+
+#### Kubernetes: "permission denied" on `/etc/rancher/k3s/k3s.yaml`
+- Installed from a package and started from the desktop menu, a Kubernetes connection could fail with `Unable to read /etc/rancher/k3s/k3s.yaml … permission denied`, while running from a terminal worked. Apps started from the menu do not read your shell's startup files, so the `KUBECONFIG` variable set there was missing, and on k3s machines `kubectl` then falls back to a root-only file.
+- PhantomOps now finds the kubeconfig itself, in this order: the connection's own setting, `$KUBECONFIG`, `~/.kube/config`, then `kubectl`'s default. This applies to scans, dashboards, rollbacks and "Detect local services".
+- Kubernetes connections have a new **kubeconfig file** field for cases where the automatic lookup is not enough. A wrong path is reported clearly instead of falling back silently.
+
+#### Clear errors for permission problems
+- If no usable kubeconfig is found, the message now says how to create one (`~/.kube/config`) instead of showing raw `kubectl` output.
+- Docker connection errors now explain themselves: no access to the Docker socket (add your user to the `docker` group), Docker not running, or a stopped daemon.
+
+---
+
+### ✨ Improvements
+
+#### Collapsible Settings
+- Each section of **Settings** is a collapsible card. Opening Settings shows only the top one (AI investigator) open; the others show a one-line summary of their current state (for example "Every 5 min · notifications on").
+- The on/off switches stay in each card's header, so you can change them without expanding the card.
+- The update badge in the title bar opens Settings straight on **About & updates**.
 
 ---
 
