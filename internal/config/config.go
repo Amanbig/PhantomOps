@@ -75,6 +75,36 @@ type Config struct {
 	Connections    []Connection      `json:"connections"`
 	AI             AIConfig          `json:"ai"`
 	Remediation    RemediationConfig `json:"remediation"`
+	Monitoring     MonitoringConfig  `json:"monitoring"`
+}
+
+// MonitoringConfig controls background scans and desktop notifications.
+type MonitoringConfig struct {
+	Enabled         bool `json:"enabled"`
+	IntervalMinutes int  `json:"intervalMinutes"`
+	Notify          bool `json:"notify"`
+	// NotifyMinSeverity is "warning" or "critical" (default).
+	NotifyMinSeverity string `json:"notifyMinSeverity"`
+}
+
+// Interval returns the scan interval (default 5 minutes).
+func (m MonitoringConfig) Interval() time.Duration {
+	if m.IntervalMinutes <= 0 {
+		return 5 * time.Minute
+	}
+	return time.Duration(m.IntervalMinutes) * time.Minute
+}
+
+// Validate checks the monitoring settings.
+func (m MonitoringConfig) Validate() error {
+	if m.IntervalMinutes != 0 && (m.IntervalMinutes < 1 || m.IntervalMinutes > 1440) {
+		return errors.New("monitoring: interval must be between 1 and 1440 minutes")
+	}
+	switch m.NotifyMinSeverity {
+	case "", "warning", "critical":
+		return nil
+	}
+	return fmt.Errorf("monitoring: unknown severity %q", m.NotifyMinSeverity)
 }
 
 // RemediationConfig controls whether PhantomOps may change infrastructure.
@@ -246,6 +276,12 @@ func (c *Config) Normalize() {
 	if c.AI.Provider == "" {
 		c.AI.Provider = "ollama"
 	}
+	if c.Monitoring.IntervalMinutes == 0 {
+		c.Monitoring.IntervalMinutes = 5
+	}
+	if c.Monitoring.NotifyMinSeverity == "" {
+		c.Monitoring.NotifyMinSeverity = "critical"
+	}
 	for i := range c.Connections {
 		cn := &c.Connections[i]
 		if cn.ID == "" {
@@ -269,6 +305,9 @@ func (c Config) Validate() error {
 		problems = append(problems, "window must be between 1 and 1440 minutes")
 	}
 	if err := c.AI.Validate(); err != nil {
+		problems = append(problems, err.Error())
+	}
+	if err := c.Monitoring.Validate(); err != nil {
 		problems = append(problems, err.Error())
 	}
 	seen := map[string]bool{}

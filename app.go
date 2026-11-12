@@ -15,6 +15,7 @@ import (
 
 	"PhantomOps/internal/config"
 	"PhantomOps/internal/engine"
+	"PhantomOps/internal/history"
 	"PhantomOps/internal/llm"
 	"PhantomOps/internal/model"
 	"PhantomOps/internal/remediate"
@@ -78,6 +79,16 @@ type App struct {
 	approvals *remediate.Approvals
 	audit     *remediate.AuditLog
 	remMu     sync.Mutex // one remediation at a time
+
+	history     *history.Store
+	historyErr  string
+	scanMu      sync.Mutex // scans never overlap
+	scanning    bool
+	lastScan    time.Time
+	nextScan    time.Time
+	monitorWake chan struct{}
+	notify      func(id, title, body string, data map[string]any) error
+	notifyErr   string
 }
 
 // RollbackPreview is what the user reviews before approving a rollback.
@@ -94,8 +105,9 @@ type RollbackPreview struct {
 func NewApp() *App {
 	return &App{
 		aiCache: map[string]model.Investigation{}, aiFlight: map[string]bool{}, aiQueue: make(chan struct{}, 1),
-		approvals: remediate.NewApprovals(),
-		audit:     remediate.NewAuditLog(filepath.Join(filepath.Dir(config.Path()), "audit.log")),
+		approvals:   remediate.NewApprovals(),
+		monitorWake: make(chan struct{}, 1),
+		audit:       remediate.NewAuditLog(filepath.Join(filepath.Dir(config.Path()), "audit.log")),
 	}
 }
 
@@ -104,6 +116,13 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.reload()
+	h, err := history.Open(filepath.Join(filepath.Dir(config.Path()), "history.json"))
+	if err != nil {
+		a.historyErr = err.Error()
+	}
+	a.history = h
+	a.initNotifications()
+	go a.monitorLoop()
 }
 
 // reload re-reads the config file and rebuilds the engine.
@@ -154,6 +173,7 @@ func (a *App) SaveSettings(cfg config.Config) error {
 		return err
 	}
 	a.apply(cfg, true, nil)
+	a.wakeMonitor()
 	return nil
 }
 
@@ -190,20 +210,10 @@ func (a *App) DetectServices() []config.Connection {
 }
 
 // Scan runs every enabled connection, correlates the events and returns the
-// detected incidents. Failures are reported per connection in Result.Errors.
+// detected incidents with stable IDs from the incident history. Failures are
+// reported per connection in Result.Errors.
 func (a *App) Scan() engine.Result {
-	a.mu.Lock()
-	eng, notes := a.eng, a.notes
-	a.mu.Unlock()
-
-	res := eng.Scan(a.context())
-	res.Warnings = append(res.Warnings, notes...)
-
-	a.mu.Lock()
-	a.attachAI(&res)
-	a.last = res
-	a.mu.Unlock()
-	return res
+	return a.runScan(false)
 }
 
 // fingerprint identifies an incident's current evidence so AI results are
@@ -267,6 +277,9 @@ func (a *App) analyze(base model.Incident, key string, ai *llm.Investigator, gen
 		if a.last.Incidents[i].ID == base.ID {
 			a.last.Incidents[i].Investigation = inv
 		}
+	}
+	if a.history != nil {
+		_ = a.history.UpdateInvestigation(base.ID, inv)
 	}
 	if a.ctx != nil {
 		runtime.EventsEmit(a.ctx, aiEvent, AIUpdate{ID: base.ID, Investigation: inv})

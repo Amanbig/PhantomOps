@@ -1,4 +1,4 @@
-import {Scan} from '../../wailsjs/go/main/App';
+import {Scan, LastResult, GetMonitorStatus} from '../../wailsjs/go/main/App';
 import {EventsOn} from '../../wailsjs/runtime/runtime';
 import {openRollback} from './rollback.js';
 import {esc, clock} from '../util.js';
@@ -98,36 +98,77 @@ function renderStatus(res) {
     return `<div class="status">Scanned at ${esc(when)} ${sources}</div>${errs}${warns}`;
 }
 
-export async function mountIncidents(root, {goToConnections}) {
+// The mounted view's renderer, so background scan events can refresh it.
+let activeRender = null;
+let scanListenerAttached = false;
+function attachScanListener() {
+    if (scanListenerAttached) return;
+    scanListenerAttached = true;
+    EventsOn('scan:update', res => activeRender?.(res));
+}
+
+function relTime(iso) {
+    const s = Math.round((new Date(iso) - new Date()) / 1000);
+    if (s <= 0) return 'now';
+    if (s < 60) return `in ${s}s`;
+    return `in ${Math.round(s / 60)} min`;
+}
+
+async function monitorLine() {
+    try {
+        const st = await GetMonitorStatus();
+        if (!st.enabled) return '<span class="monitor off">Monitoring off</span>';
+        const next = st.nextScan && !st.nextScan.startsWith('0001') ? ` · next scan ${relTime(st.nextScan)}` : '';
+        const notify = st.notify ? (st.notificationsError ? ' · <span class="note-bad">notifications unavailable</span>' : ' · notifications on') : '';
+        return `<span class="monitor on"><span class="dot dot-ok"></span> Monitoring every ${st.intervalMinutes} min${next}${notify}</span>`;
+    } catch { return ''; }
+}
+
+export async function mountIncidents(root, {goToConnections, focusId} = {}) {
     attachAIListener();
+    attachScanListener();
     incidentsById.clear();
     root.innerHTML = `
         <div class="toolbar"><h2 class="view-title">Incidents</h2>
-            <button class="btn" id="scan">Scan now</button></div>
+            <div class="toolbar-actions"><span id="monitor-line" class="small"></span>
+            <button class="btn" id="scan">Scan now</button></div></div>
         <div id="incident-content"></div>`;
     const content = root.querySelector('#incident-content');
     const btn = root.querySelector('#scan');
+    const refreshMonitor = async () => { const el = root.querySelector('#monitor-line'); if (el) el.innerHTML = await monitorLine(); };
+
+    function render(res) {
+        if (!root.isConnected || !root.contains(content)) return;
+        incidentsById.clear();
+        if (!(res.collectors || []).length) {
+            content.innerHTML = `<div class="empty">
+                <div class="empty-icon">🔌</div>
+                <h3>No services connected</h3>
+                <p class="muted">Connect Docker, Kubernetes, Nomad, Prometheus, Loki or an SSH host so Phantom has something to investigate.</p>
+                <button class="btn" id="goto-conn">Connect services</button></div>`;
+        } else {
+            const incidents = res.incidents || [];
+            content.innerHTML = renderStatus(res) + (incidents.length
+                ? incidents.map(renderIncident).join('')
+                : `<div class="empty"><div class="empty-icon">👻</div>
+                   <h3>No incidents detected</h3>
+                   <p class="muted">Suspiciously quiet… Phantom is watching.</p></div>`);
+        }
+        content.querySelector('#goto-conn')?.addEventListener('click', goToConnections);
+        if (focusId) {
+            const el = content.querySelector(`[data-incident="${CSS.escape(focusId)}"]`);
+            if (el) { el.classList.add('incident-focus'); el.scrollIntoView({block: 'start'}); }
+            focusId = null;
+        }
+        refreshMonitor();
+    }
+    activeRender = render;
 
     async function scan() {
         btn.disabled = true;
         btn.textContent = 'Scanning…';
         try {
-            const res = await Scan();
-            if (!(res.collectors || []).length) {
-                content.innerHTML = `<div class="empty">
-                    <div class="empty-icon">🔌</div>
-                    <h3>No services connected</h3>
-                    <p class="muted">Connect Docker, Kubernetes, Nomad, Prometheus, Loki or an SSH host so Phantom has something to investigate.</p>
-                    <button class="btn" id="goto-conn">Connect services</button></div>`;
-            } else {
-                const incidents = res.incidents || [];
-                content.innerHTML = renderStatus(res) + (incidents.length
-                    ? incidents.map(renderIncident).join('')
-                    : `<div class="empty"><div class="empty-icon">👻</div>
-                       <h3>No incidents detected</h3>
-                       <p class="muted">Suspiciously quiet… Phantom is watching.</p></div>`);
-            }
-            content.querySelector('#goto-conn')?.addEventListener('click', goToConnections);
+            render(await Scan());
         } catch (err) {
             console.error(err);
             content.innerHTML = `<p class="error">Scan failed: ${esc(err)}</p>`;
@@ -144,5 +185,10 @@ export async function mountIncidents(root, {goToConnections}) {
         const inc = incidentsById.get(b.dataset.approve);
         if (inc) openRollback(inc, {onDone: scan, goToConnections});
     });
-    await scan();
+
+    // Show the latest result immediately; scan only if there is none yet.
+    const last = await LastResult().catch(() => null);
+    if (last && last.scannedAt && !String(last.scannedAt).startsWith('0001')) render(last);
+    else await scan();
+    const timer = setInterval(() => root.contains(content) ? refreshMonitor() : clearInterval(timer), 15000);
 }
