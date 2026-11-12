@@ -14,8 +14,8 @@ const ICONS = {
     close: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg>',
 };
 
-// renderTitleBar returns the bar's markup; tabsHTML is placed in the middle.
-export function renderTitleBar(tabsHTML) {
+// renderTitleBar returns the bar's markup. Navigation lives in the sidebar.
+export function renderTitleBar() {
     return `
         <header class="titlebar" id="titlebar">
             <div class="tb-left">
@@ -24,7 +24,7 @@ export function renderTitleBar(tabsHTML) {
                 <span class="version" id="app-version"></span>
                 <button class="update-badge no-drag" id="update-badge" hidden>⬆ Update available</button>
             </div>
-            <nav class="tabs no-drag" aria-label="Sections">${tabsHTML}</nav>
+            <div class="tb-center"></div>
             <div class="tb-right">
                 <div class="win-controls no-drag" id="win-controls">
                     <button class="win-btn" id="win-min" title="Minimise" aria-label="Minimise">${ICONS.minimise}</button>

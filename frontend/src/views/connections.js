@@ -1,4 +1,4 @@
-import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, GetMonitorStatus} from '../../wailsjs/go/main/App';
+import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, GetMonitorStatus, LastResult} from '../../wailsjs/go/main/App';
 import {esc} from '../util.js';
 import {mountUpdates} from './updates.js';
 
@@ -70,10 +70,23 @@ function isLocalUrl(u) {
     } catch { return false; }
 }
 
-let state = {settings: null, detected: null, health: {}, form: null, error: '', aiTest: null, aiModels: []};
+let state = {settings: null, detected: null, health: {}, form: null, error: '', aiTest: null, aiModels: [], mode: 'connections', focusId: '', scanHealth: {}};
 let root;
+let onChange = () => {};
 
-export async function mountConnections(el) {
+// typeInfo returns the label and icon of a connection type (used by the sidebar).
+export function typeInfo(type) {
+    return TYPES[type] || {label: type, icon: '❔'};
+}
+
+// onConnectionsChanged registers a callback run after settings are saved.
+export function onConnectionsChanged(cb) { onChange = cb; }
+
+// mountConnections shows the connection list (focusId highlights one card).
+export async function mountConnections(el, {focusId = '', add = false} = {}) {
+    state.mode = 'connections';
+    state.focusId = focusId;
+    state.form = add ? {type: '', conn: null} : null;
     root = el;
     root.innerHTML = '<p class="muted">Loading…</p>';
     await refresh();
@@ -83,6 +96,7 @@ async function refresh() {
     try {
         state.settings = await GetSettings();
         state.error = '';
+        state.scanHealth = scanHealth(await LastResult().catch(() => null));
     } catch (err) {
         state.error = String(err);
     }
@@ -94,6 +108,7 @@ async function persist(cfg, okMessage) {
         await SaveSettings(cfg);
         state.error = '';
         await refresh();
+        onChange();
         if (okMessage) toast(okMessage);
         return true;
     } catch (err) {
@@ -132,6 +147,17 @@ function sameTarget(a, b) {
 
 // ---------- rendering ----------
 
+// scanHealth maps connection name -> {ok, message} from a scan result.
+export function scanHealth(res) {
+    const out = {};
+    if (!res || !res.scannedAt || String(res.scannedAt).startsWith('0001')) return out;
+    for (const name of res.collectors || []) {
+        const err = (res.errors || {})[name];
+        out[name] = err ? {ok: false, message: err} : {ok: true, message: 'Healthy in the last scan'};
+    }
+    return out;
+}
+
 function render() {
     if (!state.settings) {
         root.innerHTML = `<p class="error">${esc(state.error || 'Could not load settings.')}</p>`;
@@ -139,6 +165,20 @@ function render() {
     }
     const {config, path, saved, notes} = state.settings;
     const conns = config.connections || [];
+
+    if (state.mode === 'settings') {
+        root.innerHTML = `
+            <div class="toolbar"><h2 class="view-title">Settings</h2></div>
+            ${state.error ? `<div class="alert alert-bad">${esc(state.error)}</div>` : ''}
+            ${renderAI(config.ai || {})}
+            ${renderMonitoring(config.monitoring || {})}
+            ${renderRemediation(config.remediation || {})}
+            ${renderGeneral(config)}
+            <div class="panel" id="updates-panel"></div>
+            <p class="muted small">Config file: <code>${esc(path)}</code></p>`;
+        bind();
+        return;
+    }
 
     root.innerHTML = `
         <div class="toolbar"><h2 class="view-title">Connections</h2>
@@ -156,19 +196,19 @@ function render() {
                 <div class="empty-icon">🔌</div><h3>No connections yet</h3>
                 <p class="muted">${DEFAULT_COUNT_HINT}</p></div>`}
         </div>
-        ${renderAI(config.ai || {})}
-        ${renderMonitoring(config.monitoring || {})}
-        ${renderRemediation(config.remediation || {})}
-        ${renderGeneral(config)}
-        <div class="panel" id="updates-panel"></div>
-        <p class="muted small">Config file: <code>${esc(path)}</code></p>
+        <p class="muted small">AI, monitoring, remediation and update settings are under <a href="#" id="goto-settings">Settings</a>.</p>
         ${state.form ? renderForm() : ''}`;
+    if (state.focusId) {
+        const card = root.querySelector(`.conn-card[data-id="${CSS.escape(state.focusId)}"]`);
+        if (card) { card.classList.add('conn-focus'); card.scrollIntoView({block: 'center'}); }
+        state.focusId = '';
+    }
     bind();
 }
 
 function renderCard(c) {
     const t = TYPES[c.type] || {label: c.type, icon: '❔'};
-    const h = state.health[c.id];
+    const h = state.health[c.id] || (c.enabled ? state.scanHealth[c.name] : null);
     const dot = h ? (h.ok ? 'dot-ok' : 'dot-bad') : 'dot-idle';
     return `
         <div class="conn-card ${c.enabled ? '' : 'conn-off'}" data-id="${esc(c.id)}">
@@ -339,6 +379,7 @@ function blankConn(type) {
 
 function bind() {
     const $ = s => root.querySelector(s);
+    $('#goto-settings')?.addEventListener('click', e => { e.preventDefault(); gotoSettings(); });
     const up = $('#updates-panel');
     if (up) mountUpdates(up);
 
@@ -494,3 +535,15 @@ function bind() {
 }
 
 function closeForm() { state.form = null; render(); }
+
+// mountSettings shows AI, monitoring, remediation, analysis and update settings.
+export async function mountSettings(el) {
+    state.mode = 'settings';
+    state.form = null;
+    root = el;
+    root.innerHTML = '<p class="muted">Loading…</p>';
+    await refresh();
+}
+
+let gotoSettings = () => {};
+export function onGotoSettings(cb) { gotoSettings = cb; }
