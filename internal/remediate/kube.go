@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"PhantomOps/internal/kubeconfig"
 )
 
 // Runner executes kubectl with the given arguments. It is a seam for tests.
@@ -20,12 +22,14 @@ type Runner func(ctx context.Context, args ...string) ([]byte, error)
 type Kube struct {
 	connection  string
 	kubeContext string
+	kubeconfig  string
 	run         Runner
 }
 
-// NewKube creates a Kubernetes executor for the named connection.
-func NewKube(connection, kubeContext string) *Kube {
-	k := &Kube{connection: connection, kubeContext: kubeContext}
+// NewKube creates a Kubernetes executor for the named connection. kubeconfig
+// may be empty (it is then resolved like the collector does).
+func NewKube(connection, kubeContext, kubeconfigPath string) *Kube {
+	k := &Kube{connection: connection, kubeContext: kubeContext, kubeconfig: kubeconfigPath}
 	k.run = k.kubectl
 	return k
 }
@@ -36,14 +40,17 @@ func NewKubeWithRunner(connection string, r Runner) *Kube {
 }
 
 func (k *Kube) kubectl(ctx context.Context, args ...string) ([]byte, error) {
+	if err := kubeconfig.Check(k.kubeconfig); err != nil {
+		return nil, err
+	}
 	if k.kubeContext != "" {
 		args = append([]string{"--context", k.kubeContext}, args...)
 	}
-	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	cmd := kubeconfig.Command(k.kubeconfig, func() *exec.Cmd { return exec.CommandContext(ctx, "kubectl", args...) })
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	if err := cmd.Run(); err != nil {
-		return out.Bytes(), fmt.Errorf("kubectl %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(errb.String()))
+		return out.Bytes(), fmt.Errorf("kubectl %s: %w: %s", strings.Join(args, " "), err, kubeconfig.Explain(errb.String()))
 	}
 	return out.Bytes(), nil
 }
