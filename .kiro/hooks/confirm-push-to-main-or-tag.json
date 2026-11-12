@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Confirm pushes to main and tag pushes",
+      "trigger": "PreToolUse",
+      "matcher": "execute_bash",
+      "action": {
+        "type": "command",
+        "command": "python3 -c \"import json,sys,re;c=json.load(sys.stdin).get('tool_input',{}).get('command','');hit=re.search(r'git\\\\s+push\\\\b.*(\\\\bmain\\\\b|\\\\bmaster\\\\b|\\\\bv\\\\d+\\\\.\\\\d+\\\\.\\\\d+|--tags)',c);print(json.dumps({'hookSpecificOutput':{'permissionDecision':'ask','permissionDecisionReason':'This push targets main or a release tag (tags publish a release). Confirm.'}})) if hit else None\""
+      }
+    }
+  ]
+}

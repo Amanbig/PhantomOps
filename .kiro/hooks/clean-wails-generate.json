@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Clean up after wails generate module",
+      "trigger": "PostToolUse",
+      "matcher": "execute_bash",
+      "action": {
+        "type": "command",
+        "command": "git checkout -- frontend/wailsjs/runtime 2>/dev/null; rm -f frontend/package.json.md5; exit 0"
+      }
+    }
+  ]
+}
