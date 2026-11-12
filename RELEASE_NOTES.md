@@ -1,8 +1,15 @@
-# PhantomOps v0.1.0 👻
+# PhantomOps v0.1.1 👻
 
 **Your infrastructure is haunted. Find out what's killing it.**
 
-The first public release of PhantomOps: a desktop app that connects to your Docker, Kubernetes, Nomad, Prometheus, Loki and SSH hosts, correlates what it sees into incident timelines, explains the most likely root cause, and can roll back a bad deployment after you review and approve it.
+**v0.1.1 is the first published release of PhantomOps**: a desktop app that connects to your Docker, Kubernetes, Nomad, Prometheus, Loki and SSH hosts, correlates what it sees into incident timelines, explains the most likely root cause, and can roll back a bad deployment after you review and approve it.
+
+> **About v0.1.0:** the `v0.1.0` tag exists, but its Linux packaging step failed, so it was never published. v0.1.1 contains everything planned for v0.1.0, plus the fixes below.
+
+### 🔧 Changes since the v0.1.0 tag
+- Fixed the Linux release build: the packaging tool (nfpm) is now pinned to a version that works with the project's Go toolchain.
+- Code checks now run on every pull request (gofmt, vet, tests, frontend and full app build, release metadata). Tagged releases only build and publish, and refuse a tag that does not match the app version.
+- PhantomOps is licensed under Apache 2.0.
 
 ---
 

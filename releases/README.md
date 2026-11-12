@@ -16,4 +16,5 @@ they become the body of the GitHub Release.
 
 | Version | Type | Highlights | Release notes |
 | :--- | :--- | :--- | :---: |
-| **v0.1.0** | *Current* · Initial public release | Docker, Kubernetes, Nomad, Prometheus, Loki and SSH collectors; correlation engine with rule-based root cause; Connections UI; optional AI investigator (Ollama / OpenAI-compatible); reviewed Kubernetes & Nomad rollbacks with audit log; background monitoring, incident history and desktop notifications; verified in-app updates | [v0.1.0.md](v0.1.0.md) |
+| **v0.1.1** | *Current* · First published release | Docker, Kubernetes, Nomad, Prometheus, Loki and SSH collectors; correlation engine with rule-based root cause; Connections UI; optional AI investigator (Ollama / OpenAI-compatible); reviewed Kubernetes & Nomad rollbacks with audit log; background monitoring, incident history and desktop notifications; verified in-app updates; fixed Linux release build; PR checks; Apache 2.0 | [v0.1.1.md](v0.1.1.md) |
+| **v0.1.0** | Tag only · not published | Planned first release; the Linux packaging step failed, so no release was published. Everything in it ships in v0.1.1 | [v0.1.0.md](v0.1.0.md) |
