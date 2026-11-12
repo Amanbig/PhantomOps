@@ -65,6 +65,12 @@ pull requests. The [release workflow](.github/workflows/release.yml) runs only f
 and publishes: Linux, Windows and macOS packages, `SHA256SUMS`, and a GitHub Release with `RELEASE_NOTES.md` as
 its description. It refuses a tag that does not match the version in `wails.json`.
 
+## Community
+
+- [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Security policy](SECURITY.md)
+- Found a bug or have an idea? [Open an issue](https://github.com/Amanbig/PhantomOps/issues/new/choose).
+- PhantomOps is free. If it helps you, you can [sponsor the project](https://github.com/sponsors/Amanbig).
+
 ## License
 
 Copyright 2026 Amanbig. Licensed under the [Apache License, Version 2.0](LICENSE).

@@ -160,10 +160,20 @@ jobs:
           sha256sum phantomops-* > SHA256SUMS
           cat SHA256SUMS
 
+      # Release description = the version's notes + a short support footer.
+      - name: Compose release description
+        run: |
+          cp RELEASE_NOTES.md "$RUNNER_TEMP/release-body.md"
+          {
+            echo
+            echo '---'
+            echo 'Enjoying PhantomOps? [Sponsor the project](https://github.com/sponsors/Amanbig) or [open an issue](https://github.com/Amanbig/PhantomOps/issues/new/choose) if something is off.'
+          } >> "$RUNNER_TEMP/release-body.md"
+
       - uses: softprops/action-gh-release@v3
         with:
           files: release-assets/*
-          body_path: RELEASE_NOTES.md
+          body_path: ${{ runner.temp }}/release-body.md
           generate_release_notes: true
           draft: false
           prerelease: false

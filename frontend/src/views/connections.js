@@ -183,6 +183,7 @@ function render() {
             ${renderRemediation(config.remediation || {})}
             ${renderGeneral(config)}
             ${renderUpdates()}
+            ${renderSupport()}
             <p class="muted small">Config file: <code>${esc(path)}</code></p>`;
         bind();
         return;
@@ -572,6 +573,22 @@ function bind() {
         else if (state.form) { state.form.error = state.error; state.error = ''; }
         render();
     });
+}
+
+// Support & community links. External links are opened in the system browser
+// by the click handler in main.js (data-ext).
+function renderSupport() {
+    const base = 'https://github.com/Amanbig/PhantomOps';
+    const link = (href, text) => `<a href="${href}" data-ext="${href}" class="ext-link">${text}</a>`;
+    const body = `
+        <p class="muted small" style="margin-top:0">PhantomOps is free and open source (Apache-2.0). If it saved you a bad night, you can help keep it going.</p>
+        <ul class="support-links">
+            <li>${link('https://github.com/sponsors/Amanbig', '♥ Sponsor on GitHub')}</li>
+            <li>${link(base + '/issues/new/choose', 'Report a bug or request a feature')}</li>
+            <li>${link(base + '/blob/main/CONTRIBUTING.md', 'Contribute')}</li>
+            <li>${link(base + '/blob/main/SECURITY.md', 'Report a security issue')}</li>
+        </ul>`;
+    return acc('support', '♥ Support &amp; community', 'Sponsor · issues · contribute', '', body, 'support-card');
 }
 
 function closeForm() { state.form = null; render(); }

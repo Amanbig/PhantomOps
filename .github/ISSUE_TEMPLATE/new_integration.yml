@@ -1,0 +1,21 @@
+name: New integration
+description: Ask for a new service/collector (e.g. Podman, Nomad variant, Datadog)
+labels: [enhancement, collector]
+body:
+  - type: input
+    id: service
+    attributes:
+      label: Service
+    validations:
+      required: true
+  - type: textarea
+    id: api
+    attributes:
+      label: How can it be read?
+      description: API/CLI, auth method, and a link to the docs. It must be possible read-only.
+    validations:
+      required: true
+  - type: textarea
+    id: events
+    attributes:
+      label: What events would reveal an incident?

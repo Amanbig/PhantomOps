@@ -1,0 +1,42 @@
+name: Bug report
+description: Something is broken or wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Add a Docker connection\n2. Click Scan\n3. ..."
+  - type: input
+    id: version
+    attributes:
+      label: PhantomOps version
+      description: Settings → About & updates
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Linux, Windows, macOS]
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Which connection type?
+      multiple: true
+      options: [Docker, Kubernetes, Nomad, Prometheus, Loki, SSH, None / app itself]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: "Remove secrets (tokens, passwords, webhook URLs) before pasting."
+      render: shell
