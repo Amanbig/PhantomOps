@@ -10,16 +10,32 @@ export function AuditLog(arg1) {
   return window['go']['main']['App']['AuditLog'](arg1);
 }
 
+export function ClearResolvedHistory() {
+  return window['go']['main']['App']['ClearResolvedHistory']();
+}
+
 export function DetectServices() {
   return window['go']['main']['App']['DetectServices']();
+}
+
+export function GetHistory() {
+  return window['go']['main']['App']['GetHistory']();
 }
 
 export function GetIncident(arg1) {
   return window['go']['main']['App']['GetIncident'](arg1);
 }
 
+export function GetMonitorStatus() {
+  return window['go']['main']['App']['GetMonitorStatus']();
+}
+
 export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
+}
+
+export function LastResult() {
+  return window['go']['main']['App']['LastResult']();
 }
 
 export function PreviewRollback(arg1) {
@@ -32,6 +48,10 @@ export function SaveSettings(arg1) {
 
 export function Scan() {
   return window['go']['main']['App']['Scan']();
+}
+
+export function SendTestNotification() {
+  return window['go']['main']['App']['SendTestNotification']();
 }
 
 export function TestAI(arg1) {

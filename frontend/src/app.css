@@ -179,3 +179,21 @@ select option { background-color: var(--panel); color: var(--text); }
 .audit td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .row-ok td:nth-child(3) { color: #7be0a4; } .row-bad td:nth-child(3) { color: var(--critical); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+
+/* ---- monitoring & history ---- */
+.monitor { color: var(--muted); display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; }
+.monitor.on { color: #7be0a4; }
+.incident-focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hist-list { display: flex; flex-direction: column; gap: 8px; }
+.hist-row { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+.hist-row.resolved { opacity: .8; }
+.hist-head { width: 100%; display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "sev title status" "times times times"; gap: 4px 12px; align-items: center; background: transparent; border: 0; color: var(--text); text-align: left; padding: 12px 14px; cursor: pointer; font: inherit; }
+.hist-head .badge { grid-area: sev; }
+.hist-title { grid-area: title; font-weight: 700; }
+.hist-status { grid-area: status; font-size: 12px; font-weight: 700; }
+.hist-status.open { color: var(--critical); } .hist-status.resolved { color: #7be0a4; }
+.hist-times { grid-area: times; }
+.hist-detail { padding: 0 14px 14px; border-top: 1px solid var(--border); }
+.hist-timeline { padding-left: 20px; margin: 4px 0; font-size: 13px; line-height: 1.7; }
+.hist-timeline .event-time { margin-right: 6px; }
+.toolbar-actions select { box-sizing: border-box; height: 41px; margin-top: 8px; padding-top: 0; padding-bottom: 0; }

@@ -1,4 +1,4 @@
-import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI} from '../../wailsjs/go/main/App';
+import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, GetMonitorStatus} from '../../wailsjs/go/main/App';
 import {esc} from '../util.js';
 
 // Describes each connectable service and the form fields it needs.
@@ -156,6 +156,7 @@ function render() {
                 <p class="muted">${DEFAULT_COUNT_HINT}</p></div>`}
         </div>
         ${renderAI(config.ai || {})}
+        ${renderMonitoring(config.monitoring || {})}
         ${renderRemediation(config.remediation || {})}
         ${renderGeneral(config)}
         <p class="muted small">Config file: <code>${esc(path)}</code></p>
@@ -224,6 +225,27 @@ function renderAI(ai) {
         <div class="toolbar-actions">
             <button class="btn btn-small btn-secondary" id="ai-test">Test &amp; load models</button>
             <button class="btn btn-small" id="ai-save">Save AI settings</button>
+        </div>
+    </div>`;
+}
+
+function renderMonitoring(m) {
+    const sev = m.notifyMinSeverity || 'critical';
+    return `<div class="panel" id="mon-panel">
+        <div class="panel-head"><strong>⏱ Monitoring</strong>
+            <label class="check" style="margin:0"><input type="checkbox" id="mon-enabled" ${m.enabled ? 'checked' : ''}> Scan in the background</label></div>
+        <p class="muted small" style="margin:0 0 10px">While PhantomOps is open, it scans on a schedule, keeps the incident history up to date, and can send a desktop notification when something new breaks. Manual scans never notify.</p>
+        <div class="form-grid">
+            <label>Scan every (minutes)<input id="mon-interval" type="number" min="1" max="1440" value="${esc(m.intervalMinutes || 5)}"></label>
+            <label>Notify for<select id="mon-sev">
+                <option value="critical" ${sev === 'critical' ? 'selected' : ''}>Critical incidents</option>
+                <option value="warning" ${sev === 'warning' ? 'selected' : ''}>Warnings and critical</option></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="mon-notify" ${m.notify ? 'checked' : ''}> Desktop notifications (new, escalated, returning and resolved incidents)</label>
+        <div id="mon-msg"></div>
+        <div class="toolbar-actions">
+            <button class="btn btn-small btn-secondary" id="mon-test">Send test notification</button>
+            <button class="btn btn-small" id="mon-save">Save monitoring</button>
         </div>
     </div>`;
 }
@@ -401,6 +423,22 @@ function bind() {
         cfg.ai = ai;
         state.aiTest = null;
         persist(cfg, 'AI settings saved');
+    });
+
+    $('#mon-test')?.addEventListener('click', async () => {
+        const msg = $('#mon-msg');
+        try { await SendTestNotification(); msg.innerHTML = '<div class="alert alert-ok">Test notification sent. If nothing appeared, check that your desktop allows notifications.</div>'; }
+        catch (err) { msg.innerHTML = `<div class="alert alert-bad">${esc(String(err))}</div>`; }
+    });
+    $('#mon-save')?.addEventListener('click', () => {
+        const cfg = cloneConfig();
+        cfg.monitoring = {
+            enabled: $('#mon-enabled').checked,
+            intervalMinutes: parseInt($('#mon-interval').value, 10) || 5,
+            notify: $('#mon-notify').checked,
+            notifyMinSeverity: $('#mon-sev').value,
+        };
+        persist(cfg, cfg.monitoring.enabled ? `Monitoring every ${cfg.monitoring.intervalMinutes} min` : 'Monitoring off');
     });
 
     $('#rem-save')?.addEventListener('click', () => {

@@ -20,6 +20,24 @@ export namespace config {
 	        this.apiKey = source["apiKey"];
 	    }
 	}
+	export class MonitoringConfig {
+	    enabled: boolean;
+	    intervalMinutes: number;
+	    notify: boolean;
+	    notifyMinSeverity: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MonitoringConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.intervalMinutes = source["intervalMinutes"];
+	        this.notify = source["notify"];
+	        this.notifyMinSeverity = source["notifyMinSeverity"];
+	    }
+	}
 	export class RemediationConfig {
 	    enabled: boolean;
 	
@@ -79,6 +97,7 @@ export namespace config {
 	    connections: Connection[];
 	    ai: AIConfig;
 	    remediation: RemediationConfig;
+	    monitoring: MonitoringConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -92,6 +111,7 @@ export namespace config {
 	        this.connections = this.convertValues(source["connections"], Connection);
 	        this.ai = this.convertValues(source["ai"], AIConfig);
 	        this.remediation = this.convertValues(source["remediation"], RemediationConfig);
+	        this.monitoring = this.convertValues(source["monitoring"], MonitoringConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -112,6 +132,7 @@ export namespace config {
 		    return a;
 		}
 	}
+	
 	
 
 }
@@ -160,6 +181,64 @@ export namespace engine {
 
 }
 
+export namespace history {
+	
+	export class Record {
+	    id: string;
+	    key: string;
+	    title: string;
+	    severity: string;
+	    status: string;
+	    // Go type: time
+	    firstSeen: any;
+	    // Go type: time
+	    lastSeen: any;
+	    // Go type: time
+	    resolvedAt?: any;
+	    scans: number;
+	    reopened: number;
+	    latest: model.Incident;
+	
+	    static createFrom(source: any = {}) {
+	        return new Record(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.key = source["key"];
+	        this.title = source["title"];
+	        this.severity = source["severity"];
+	        this.status = source["status"];
+	        this.firstSeen = this.convertValues(source["firstSeen"], null);
+	        this.lastSeen = this.convertValues(source["lastSeen"], null);
+	        this.resolvedAt = this.convertValues(source["resolvedAt"], null);
+	        this.scans = source["scans"];
+	        this.reopened = source["reopened"];
+	        this.latest = this.convertValues(source["latest"], model.Incident);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace main {
 	
 	export class AITestResult {
@@ -179,6 +258,52 @@ export namespace main {
 	        this.models = source["models"];
 	        this.remote = source["remote"];
 	    }
+	}
+	export class MonitorStatus {
+	    enabled: boolean;
+	    intervalMinutes: number;
+	    // Go type: time
+	    lastScan: any;
+	    // Go type: time
+	    nextScan: any;
+	    scanning: boolean;
+	    notify: boolean;
+	    notificationsError: string;
+	    historyError: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MonitorStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.intervalMinutes = source["intervalMinutes"];
+	        this.lastScan = this.convertValues(source["lastScan"], null);
+	        this.nextScan = this.convertValues(source["nextScan"], null);
+	        this.scanning = source["scanning"];
+	        this.notify = source["notify"];
+	        this.notificationsError = source["notificationsError"];
+	        this.historyError = source["historyError"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class RollbackPreview {
 	    token: string;
