@@ -5,7 +5,7 @@ import {mountIncidents} from './views/incidents.js';
 import {mountConnections, mountSettings, onConnectionsChanged, onGotoSettings} from './views/connections.js';
 import {mountActivity} from './views/activity.js';
 import {mountHistory} from './views/history.js';
-import {EventsOn} from '../wailsjs/runtime/runtime';
+import {EventsOn, BrowserOpenURL} from '../wailsjs/runtime/runtime';
 import {GetAppVersion, LastResult} from '../wailsjs/go/main/App';
 import {onUpdateAvailable} from './views/updates.js';
 import {renderTitleBar, initTitleBar} from './titlebar.js';
@@ -70,4 +70,12 @@ onUpdateAvailable(info => {
 badge.addEventListener('click', () => {
     show('settings', {open: 'updates'});
     setTimeout(() => document.getElementById('updates-card')?.scrollIntoView({block: 'start'}), 150);
+});
+
+// External links open in the system browser, never inside the app window.
+document.addEventListener('click', e => {
+    const a = e.target.closest?.('a[data-ext]');
+    if (!a) return;
+    e.preventDefault();
+    BrowserOpenURL(a.dataset.ext);
 });

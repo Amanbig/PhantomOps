@@ -382,3 +382,9 @@ select option { background-color: var(--panel); color: var(--text); }
 .detected-name { display: inline-flex; align-items: center; gap: 8px; }
 .modal-title { display: flex; align-items: center; gap: 10px; }
 .sb-icon .tlogo { width: 18px; height: 18px; }
+
+/* Support & community card */
+.support-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ext-link { color: var(--accent); text-decoration: none; }
+.ext-link:hover { text-decoration: underline; }
+.ext-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
