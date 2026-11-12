@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Go format check on save",
+      "trigger": "PostFileSave",
+      "matcher": "\\.go$",
+      "action": {
+        "type": "command",
+        "command": "gofmt -l . | grep . && echo 'gofmt: files above need formatting' >&2 || true"
+      }
+    }
+  ]
+}
