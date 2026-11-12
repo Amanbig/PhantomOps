@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Block writes to secrets and generated files",
+      "trigger": "PreToolUse",
+      "matcher": "fs_write|str_replace|fs_append",
+      "action": {
+        "type": "command",
+        "command": "python3 -c \"import json,sys,re;d=json.load(sys.stdin);s=json.dumps(d);sys.exit(2) if re.search(r'(\\\\.config/phantomops/|/\\\\.env|frontend/dist/|audit\\\\.log)',s) else sys.exit(0)\" || { echo 'Blocked: secrets, audit log or generated files must not be edited by agents.' >&2; exit 2; }"
+      }
+    }
+  ]
+}
