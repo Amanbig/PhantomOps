@@ -113,6 +113,7 @@ export namespace config {
 	    remediation: RemediationConfig;
 	    monitoring: MonitoringConfig;
 	    updates: UpdatesConfig;
+	    webhooks: notify.Channel[];
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -128,6 +129,7 @@ export namespace config {
 	        this.remediation = this.convertValues(source["remediation"], RemediationConfig);
 	        this.monitoring = this.convertValues(source["monitoring"], MonitoringConfig);
 	        this.updates = this.convertValues(source["updates"], UpdatesConfig);
+	        this.webhooks = this.convertValues(source["webhooks"], notify.Channel);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -325,6 +327,43 @@ export namespace main {
 	        this.remote = source["remote"];
 	    }
 	}
+	export class WebhookStatus {
+	    id: string;
+	    // Go type: time
+	    at: any;
+	    ok: boolean;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new WebhookStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.at = this.convertValues(source["at"], null);
+	        this.ok = source["ok"];
+	        this.error = source["error"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class MonitorStatus {
 	    enabled: boolean;
 	    intervalMinutes: number;
@@ -336,6 +375,7 @@ export namespace main {
 	    notify: boolean;
 	    notificationsError: string;
 	    historyError: string;
+	    webhooks: WebhookStatus[];
 	
 	    static createFrom(source: any = {}) {
 	        return new MonitorStatus(source);
@@ -351,6 +391,7 @@ export namespace main {
 	        this.notify = source["notify"];
 	        this.notificationsError = source["notificationsError"];
 	        this.historyError = source["historyError"];
+	        this.webhooks = this.convertValues(source["webhooks"], WebhookStatus);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -601,6 +642,33 @@ export namespace model {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace notify {
+	
+	export class Channel {
+	    id: string;
+	    type: string;
+	    name: string;
+	    enabled: boolean;
+	    url: string;
+	    minSeverity: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Channel(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.type = source["type"];
+	        this.name = source["name"];
+	        this.enabled = source["enabled"];
+	        this.url = source["url"];
+	        this.minSeverity = source["minSeverity"];
+	    }
 	}
 
 }

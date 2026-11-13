@@ -94,6 +94,10 @@ export function SendTestNotification() {
   return window['go']['main']['App']['SendTestNotification']();
 }
 
+export function SendTestWebhook(arg1) {
+  return window['go']['main']['App']['SendTestWebhook'](arg1);
+}
+
 export function SnoozeIncident(arg1, arg2) {
   return window['go']['main']['App']['SnoozeIncident'](arg1, arg2);
 }

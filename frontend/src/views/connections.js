@@ -1,5 +1,5 @@
-import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, GetMonitorStatus, LastResult, GetAppVersion, PendingUpdate} from '../../wailsjs/go/main/App';
-import {esc} from '../util.js';
+import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, SendTestWebhook, GetMonitorStatus, LastResult, GetAppVersion, PendingUpdate} from '../../wailsjs/go/main/App';
+import {esc, clock} from '../util.js';
 import {logo} from '../logos.js';
 import {mountUpdates} from './updates.js';
 
@@ -75,7 +75,7 @@ function isLocalUrl(u) {
     } catch { return false; }
 }
 
-let state = {settings: null, detected: null, health: {}, form: null, error: '', aiTest: null, aiModels: [], mode: 'connections', focusId: '', scanHealth: {},
+let state = {hookDraft: null, hookStatus: {}, settings: null, detected: null, health: {}, form: null, error: '', aiTest: null, aiModels: [], mode: 'connections', focusId: '', scanHealth: {},
     open: new Set(['ai']), appVersion: '', pendingUpdate: null};
 let root;
 let onChange = () => {};
@@ -105,6 +105,9 @@ async function refresh() {
         state.scanHealth = scanHealth(await LastResult().catch(() => null));
         state.appVersion = await GetAppVersion().catch(() => state.appVersion);
         state.pendingUpdate = await PendingUpdate().catch(() => null);
+        const mon = await GetMonitorStatus().catch(() => null);
+        state.hookStatus = Object.fromEntries((mon?.webhooks || []).map(w => [w.id, w]));
+        state.hookDraft = null;
     } catch (err) {
         state.error = String(err);
     }
@@ -180,6 +183,7 @@ function render() {
             ${state.error ? `<div class="alert alert-bad">${esc(state.error)}</div>` : ''}
             ${renderAI(config.ai || {})}
             ${renderMonitoring(config.monitoring || {})}
+            ${renderWebhooks(state.hookDraft || config.webhooks || [])}
             ${renderRemediation(config.remediation || {})}
             ${renderGeneral(config)}
             ${renderUpdates()}
@@ -315,6 +319,55 @@ function renderMonitoring(m) {
         </div>`;
     return acc('monitoring', '⏱ Monitoring', summaryText,
         `<label class="check acc-switch"><input type="checkbox" id="mon-enabled" ${m.enabled ? 'checked' : ''}> Scan in the background</label>`, body, 'mon-panel');
+}
+
+const HOOK_TYPES = {slack: 'Slack', discord: 'Discord', generic: 'Generic JSON'};
+const HOOK_HINTS = {slack: 'https://hooks.slack.com/services/…', discord: 'https://discord.com/api/webhooks/…', generic: 'https://example.com/hook'};
+
+function renderWebhooks(list) {
+    const active = list.filter(w => w.enabled).length;
+    const summaryText = list.length ? `${list.length} channel${list.length > 1 ? 's' : ''}${active ? ` · ${active} on` : ' · all off'}` : 'None';
+    const rows = list.map((w, i) => {
+        const st = state.hookStatus[w.id];
+        const status = !st ? '' : st.ok
+            ? `<span class="muted small">Last delivery OK · ${esc(clock(st.at))}</span>`
+            : `<span class="small" style="color:var(--bad, #f87171)">Last delivery failed: ${esc(st.error || 'unknown error')}</span>`;
+        const sev = w.minSeverity || 'critical';
+        return `<div class="hook-row" data-i="${i}" data-id="${esc(w.id || '')}">
+            <div class="form-grid">
+                <label>Name<input data-f="name" value="${esc(w.name || '')}" placeholder="#ops-alerts"></label>
+                <label>Type<select data-f="type">${Object.entries(HOOK_TYPES).map(([k, v]) => `<option value="${k}" ${w.type === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+                <label>Webhook URL<input data-f="url" type="password" autocomplete="off" value="${esc(w.url || '')}" placeholder="${esc(HOOK_HINTS[w.type] || HOOK_HINTS.slack)}"></label>
+                <label>Send for<select data-f="minSeverity">
+                    <option value="critical" ${sev === 'critical' ? 'selected' : ''}>Critical incidents</option>
+                    <option value="warning" ${sev === 'warning' ? 'selected' : ''}>Warnings and critical</option></select></label>
+            </div>
+            <label class="check"><input type="checkbox" data-f="enabled" ${w.enabled ? 'checked' : ''}> Enabled</label>
+            <div class="toolbar-actions">
+                <button class="btn btn-small btn-secondary" data-hook-test="${i}">Send test message</button>
+                <button class="btn btn-small btn-secondary" data-hook-del="${i}">Remove</button>
+            </div>
+            <div class="hook-msg" data-hook-msg="${i}">${status}</div>
+        </div>`;
+    }).join('');
+    const body = `
+        <p class="muted small" style="margin:0 0 10px">Post incident updates to Slack, Discord or any JSON endpoint while PhantomOps monitors in the background. Nothing is sent unless you add a channel. Messages contain only the title, severity and root-cause summary (never logs or credentials), and muted or snoozed incidents stay silent. The URL is stored in the config file (owner-only) and hidden here.</p>
+        ${rows || '<p class="muted small">No channels yet.</p>'}
+        <div id="hook-err"></div>
+        <div class="toolbar-actions">
+            <button class="btn btn-small btn-secondary" id="hook-add">Add channel</button>
+            <button class="btn btn-small" id="hook-save">Save channels</button>
+        </div>`;
+    return acc('webhooks', '💬 Chat &amp; webhooks', summaryText, '', body, 'hooks-panel');
+}
+
+// readHooks collects the channel rows from the form.
+function readHooks() {
+    return [...root.querySelectorAll('.hook-row')].map(row => {
+        const f = n => row.querySelector(`[data-f="${n}"]`);
+        return {id: row.dataset.id, name: f('name').value.trim(), type: f('type').value, url: f('url').value.trim(),
+            minSeverity: f('minSeverity').value, enabled: f('enabled').checked};
+    });
 }
 
 function renderRemediation(rem) {
@@ -525,6 +578,33 @@ function bind() {
             notifyMinSeverity: $('#mon-sev').value,
         };
         persist(cfg, cfg.monitoring.enabled ? `Monitoring every ${cfg.monitoring.intervalMinutes} min` : 'Monitoring off');
+    });
+
+    $('#hook-add')?.addEventListener('click', () => {
+        state.hookDraft = [...readHooks(), {id: '', name: '', type: 'slack', url: '', minSeverity: 'critical', enabled: true}];
+        state.open.add('webhooks');
+        render();
+    });
+    root.querySelectorAll('[data-hook-del]').forEach(b => b.addEventListener('click', () => {
+        const list = readHooks();
+        list.splice(Number(b.dataset.hookDel), 1);
+        state.hookDraft = list;
+        render();
+    }));
+    root.querySelectorAll('[data-hook-test]').forEach(b => b.addEventListener('click', async () => {
+        const i = Number(b.dataset.hookTest);
+        const msg = root.querySelector(`[data-hook-msg="${i}"]`);
+        b.disabled = true;
+        try {
+            await SendTestWebhook(readHooks()[i]);
+            msg.innerHTML = '<div class="alert alert-ok">Test message sent.</div>';
+        } catch (err) { msg.innerHTML = `<div class="alert alert-bad">${esc(String(err))}</div>`; }
+        b.disabled = false;
+    }));
+    $('#hook-save')?.addEventListener('click', () => {
+        const cfg = cloneConfig();
+        cfg.webhooks = readHooks();
+        persist(cfg, 'Chat & webhook channels saved');
     });
 
     $('#rem-save')?.addEventListener('click', () => {

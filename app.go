@@ -18,6 +18,7 @@ import (
 	"PhantomOps/internal/history"
 	"PhantomOps/internal/llm"
 	"PhantomOps/internal/model"
+	"PhantomOps/internal/notify"
 	"PhantomOps/internal/remediate"
 	"PhantomOps/internal/updater"
 )
@@ -90,6 +91,8 @@ type App struct {
 	monitorWake chan struct{}
 	notify      func(id, title, body string, data map[string]any) error
 	notifyErr   string
+	hooks       *notify.Sender
+	hookStatus  map[string]WebhookStatus // last delivery result per webhook ID
 
 	updater       *updater.Updater
 	pendingUpdate *updater.Info
@@ -111,6 +114,7 @@ func NewApp() *App {
 		aiCache: map[string]model.Investigation{}, aiFlight: map[string]bool{}, aiQueue: make(chan struct{}, 1),
 		approvals:   remediate.NewApprovals(),
 		monitorWake: make(chan struct{}, 1),
+		hooks:       notify.NewSender(),
 		audit:       remediate.NewAuditLog(filepath.Join(filepath.Dir(config.Path()), "audit.log")),
 	}
 }

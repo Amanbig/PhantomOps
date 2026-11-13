@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"PhantomOps/internal/config"
 	"PhantomOps/internal/engine"
 	"PhantomOps/internal/history"
 	"PhantomOps/internal/model"
+	"PhantomOps/internal/notify"
 )
 
 // UI events emitted by the monitor.
@@ -20,6 +23,9 @@ const (
 
 // maxNotificationsPerScan bounds notification bursts; the rest are summarised.
 const maxNotificationsPerScan = 3
+
+// maxWebhooksPerScan bounds messages per channel per scan.
+const maxWebhooksPerScan = 10
 
 // MonitorStatus is shown in the UI.
 type MonitorStatus struct {
@@ -32,6 +38,16 @@ type MonitorStatus struct {
 	// NotificationsError explains why desktop notifications are unavailable.
 	NotificationsError string `json:"notificationsError"`
 	HistoryError       string `json:"historyError"`
+	// Webhooks holds the last delivery result of each webhook channel.
+	Webhooks []WebhookStatus `json:"webhooks"`
+}
+
+// WebhookStatus is the outcome of the latest delivery to one channel.
+type WebhookStatus struct {
+	ID    string    `json:"id"`
+	At    time.Time `json:"at"`
+	OK    bool      `json:"ok"`
+	Error string    `json:"error,omitempty"`
 }
 
 // initNotifications connects to the desktop notification service and routes
@@ -114,7 +130,7 @@ func (a *App) runScan(background bool) engine.Result {
 	defer a.scanMu.Unlock()
 
 	a.mu.Lock()
-	eng, notes, mon := a.eng, a.notes, a.cfg.Monitoring
+	eng, notes, mon, hooks := a.eng, a.notes, a.cfg.Monitoring, a.cfg.Webhooks
 	a.scanning = true
 	a.mu.Unlock()
 
@@ -138,8 +154,11 @@ func (a *App) runScan(background bool) engine.Result {
 	a.lastScan, a.scanning = res.ScannedAt, false
 	a.mu.Unlock()
 
-	if background && mon.Notify {
-		a.sendNotifications(changes, mon.NotifyMinSeverity)
+	if background {
+		if mon.Notify {
+			a.sendNotifications(changes, mon.NotifyMinSeverity)
+		}
+		a.sendWebhooks(changes, hooks)
 	}
 	return res
 }
@@ -151,19 +170,19 @@ func severityAtLeast(s model.Severity, min string) bool {
 	return s == model.SeverityCritical
 }
 
-func (a *App) sendNotifications(changes []history.Change, minSeverity string) {
-	if a.notify == nil {
-		return
-	}
-	type note struct{ id, title, body string }
+// note is one incident update ready to be shown or sent.
+type note struct{ id, kind, severity, title, body string }
+
+// buildNotes turns history changes into notes, skipping anything below
+// minSeverity and anything muted or snoozed. (Acknowledged incidents still
+// notify: an escalation matters even when someone is on it.)
+func (a *App) buildNotes(changes []history.Change, minSeverity string) []note {
 	var notes []note
 	for _, c := range changes {
 		r := c.Record
 		if !severityAtLeast(r.Severity, minSeverity) {
 			continue
 		}
-		// Muted and snoozed incidents stay silent. (Acknowledged ones still
-		// notify: an escalation matters even when someone is on it.)
 		if a.history != nil && a.history.Suppressed(r) {
 			continue
 		}
@@ -184,20 +203,97 @@ func (a *App) sendNotifications(changes []history.Change, minSeverity string) {
 		default:
 			continue
 		}
-		notes = append(notes, note{r.ID, title, cause})
+		notes = append(notes, note{r.ID, c.Kind, string(r.Severity), title, cause})
 	}
-	if len(notes) > maxNotificationsPerScan {
-		extra := len(notes) - (maxNotificationsPerScan - 1)
-		notes = append(notes[:maxNotificationsPerScan-1], note{"summary",
-			fmt.Sprintf("👻 %d more incident updates", extra), "Open PhantomOps to see them."})
+	return notes
+}
+
+// capNotes bounds a burst: beyond max, the rest are summarised in one note.
+func capNotes(notes []note, max int) []note {
+	if len(notes) <= max {
+		return notes
 	}
-	for _, n := range notes {
+	extra := len(notes) - (max - 1)
+	return append(notes[:max-1:max-1], note{id: "summary", kind: "summary",
+		title: fmt.Sprintf("👻 %d more incident updates", extra), body: "Open PhantomOps to see them."})
+}
+
+func (a *App) sendNotifications(changes []history.Change, minSeverity string) {
+	if a.notify == nil {
+		return
+	}
+	for _, n := range capNotes(a.buildNotes(changes, minSeverity), maxNotificationsPerScan) {
 		data := map[string]any{"incidentId": n.id}
 		if n.id == "summary" {
 			data = nil
 		}
 		_ = a.notify("phantomops-"+n.id+"-"+fmt.Sprint(time.Now().UnixNano()), n.title, n.body, data)
 	}
+}
+
+// sendWebhooks delivers incident updates to every enabled channel. It runs
+// in the background and never blocks or fails a scan; each channel's result
+// is kept for the Settings page.
+func (a *App) sendWebhooks(changes []history.Change, channels []notify.Channel) {
+	for _, ch := range channels {
+		if !ch.Enabled {
+			continue
+		}
+		notes := capNotes(a.buildNotes(changes, ch.MinSeverity), maxWebhooksPerScan)
+		if len(notes) == 0 {
+			continue
+		}
+		go func(ch notify.Channel, notes []note) {
+			var failure error
+			for _, n := range notes {
+				m := notify.Message{Kind: n.kind, IncidentID: n.id, Title: n.title, Severity: n.severity, RootCause: n.body, At: time.Now().UTC()}
+				if n.id == "summary" {
+					m.IncidentID = ""
+				}
+				ctx, cancel := context.WithTimeout(a.context(), notify.Timeout)
+				err := a.hooks.Send(ctx, ch, m)
+				cancel()
+				if err != nil {
+					failure = err
+					break // endpoint is down or rejecting; do not hammer it
+				}
+			}
+			a.recordWebhook(ch.ID, failure)
+		}(ch, notes)
+	}
+}
+
+func (a *App) recordWebhook(id string, err error) {
+	st := WebhookStatus{ID: id, At: time.Now().UTC(), OK: err == nil}
+	if err != nil {
+		st.Error = err.Error()
+	}
+	a.mu.Lock()
+	if a.hookStatus == nil {
+		a.hookStatus = map[string]WebhookStatus{}
+	}
+	a.hookStatus[id] = st
+	a.mu.Unlock()
+}
+
+// SendTestWebhook sends a sample message to one channel (not saved yet is
+// fine). A masked URL means "use the stored one".
+func (a *App) SendTestWebhook(ch notify.Channel) error {
+	id := ch.ID // blank for an unsaved channel: no status to record
+	cfg := config.Config{Webhooks: []notify.Channel{ch}}
+	a.mu.Lock()
+	cfg.RestoreSecrets(a.cfg)
+	a.mu.Unlock()
+	cfg.Normalize()
+	ch = cfg.Webhooks[0]
+	ctx, cancel := context.WithTimeout(a.context(), notify.Timeout)
+	defer cancel()
+	err := a.hooks.Send(ctx, ch, notify.Message{Kind: "test", Title: "👻 PhantomOps webhook works",
+		RootCause: "This is a test message. Real incident updates will look like this.", At: time.Now().UTC()})
+	if id != "" {
+		a.recordWebhook(id, err)
+	}
+	return err
 }
 
 func humanDuration(d time.Duration) string {
@@ -230,6 +326,7 @@ func (a *App) GetMonitorStatus() MonitorStatus {
 	return MonitorStatus{
 		Enabled: m.Enabled, IntervalMinutes: int(m.Interval().Minutes()), LastScan: a.lastScan, NextScan: a.nextScan,
 		Scanning: a.scanning, Notify: m.Notify, NotificationsError: a.notifyErr, HistoryError: a.historyErr,
+		Webhooks: a.webhookStatuses(),
 	}
 }
 
@@ -259,4 +356,16 @@ func (a *App) ClearResolvedHistory() error {
 		return nil
 	}
 	return a.history.ClearResolved()
+}
+
+// webhookStatuses lists delivery results for channels that still exist.
+// Callers hold a.mu.
+func (a *App) webhookStatuses() []WebhookStatus {
+	out := []WebhookStatus{}
+	for _, w := range a.cfg.Webhooks {
+		if st, ok := a.hookStatus[w.ID]; ok {
+			out = append(out, st)
+		}
+	}
+	return out
 }

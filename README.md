@@ -30,6 +30,13 @@ Settings are stored in `$PHANTOM_CONFIG` or `<user config dir>/phantomops/config
 (`~/.config/phantomops/config.json` on Linux) with owner-only permissions, since it may hold tokens.
 You can also edit it by hand; see `dev/config.example.json`.
 
+## Chat notifications
+
+Optional. In **Settings → Chat & webhooks** add a Slack, Discord or generic JSON webhook. While background
+monitoring runs, new, escalated, returning and resolved incidents are posted there (muted and snoozed ones are
+not). Messages only contain the title, severity and root-cause summary. The webhook URL is stored in the
+owner-only config file and masked in the UI.
+
 ## Try it without the GUI
 
 ```sh
