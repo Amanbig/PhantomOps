@@ -1,29 +1,26 @@
-# PhantomOps v0.2.2 👻
+# PhantomOps v0.3.0 👻
 
-PhantomOps **v0.2.2** is a patch release: connections now show their **real service logos**, Settings gets a **Support & community** card, and the project has the usual open-source community files.
-
----
-
-### ✨ Improvements
-
-#### Real service logos
-- Connections, the sidebar, the Overview and the dashboards now show the real Docker, Kubernetes, Nomad and Prometheus logos instead of emoji. Loki and SSH use simple glyphs drawn for PhantomOps.
-- Logos are used only to identify the services; they are trademarks of their owners (see the README).
-
-#### Support & community
-- New **Support & community** card in Settings: sponsor the project, report a bug, contribute, or report a security issue. Links open in your browser.
+PhantomOps **v0.3.0** adds **chat notifications**: send incident updates to Slack, Discord or any JSON endpoint while PhantomOps monitors in the background.
 
 ---
 
-### 🔧 Fixes
-- The empty bar chart showed y-axis labels "1, 1, 0"; it now shows "1" and "0".
-- Internal: generated frontend bindings now include the Kubernetes `kubeconfig` field.
+### ✨ New
+
+#### Chat & webhooks
+- New **Chat & webhooks** card in Settings. Add a **Slack**, **Discord** or **Generic JSON** channel, pick the minimum severity for each, and use **Send test message** to check it works.
+- While background monitoring runs, new, escalated, returning and resolved incidents are posted to every enabled channel. Muted and snoozed incidents stay silent.
+- Messages contain only the incident title, severity and root-cause summary. No logs, environment values or credentials. Discord messages cannot ping `@everyone`.
+- Each channel shows the result of its last delivery, including the error if it failed.
+- **Nothing is sent unless you add a channel.**
+
+#### Privacy and safety
+- A webhook URL is a secret: it is hidden in the app, stored in the owner-only config file, and never appears in error messages.
+- Slack and Discord webhooks must use https. Redirects are not followed, each delivery times out after 10 seconds, and a failing endpoint is not retried within the same scan.
 
 ---
 
-### 🤝 Project
-- Added issue forms, a pull request template, `CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY` and a sponsor file.
-- Release descriptions now end with a short sponsor/issues note.
+### 🔧 Internal
+- New unit tests for the sender, the config handling of webhook URLs, and the filtering of notifications.
 
 ---
 
