@@ -171,10 +171,10 @@ func (n *Nomad) Plan(ctx context.Context, target string) (Plan, error) {
 		n.base, id, ns, prev.Version, job.Version)
 	p.Feasible = true
 	p.fingerprint = fmt.Sprintf("%d>%d", job.Version, prev.Version)
-	p.Notes = []string{
+	p.Notes = append(p.Notes,
 		"Nomad registers the old job definition as a new version and replaces the running allocations.",
 		"The revert is rejected by Nomad if the job was modified after this preview (EnforcePriorVersion).",
-	}
+	)
 	return p, nil
 }
 

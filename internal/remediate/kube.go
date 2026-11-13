@@ -126,10 +126,10 @@ func (k *Kube) Plan(ctx context.Context, target string) (Plan, error) {
 		return p, nil
 	}
 	p.Feasible = true
-	p.Notes = []string{
+	p.Notes = append(p.Notes,
 		"Kubernetes will create new pods from the previous revision's pod template and retire the current ones.",
 		"Only the pod template is reverted; replica count and other fields are left as they are.",
-	}
+	)
 	if len(prevImgs) > 0 && strings.Join(prevImgs, ",") == strings.Join(images(d), ",") {
 		p.Notes = append(p.Notes, "The previous revision uses the same image as the current one; the difference is in the configuration (env, resources, command...).")
 	}
