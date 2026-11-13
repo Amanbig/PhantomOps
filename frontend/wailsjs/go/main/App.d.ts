@@ -35,6 +35,8 @@ export function GetSettings():Promise<main.Settings>;
 
 export function GetUpdateProgress():Promise<updater.Progress>;
 
+export function IncidentReport(arg1:string):Promise<string>;
+
 export function InstallUpdate(arg1:string):Promise<void>;
 
 export function LastResult():Promise<engine.Result>;
@@ -48,6 +50,8 @@ export function PendingUpdate():Promise<updater.Info>;
 export function PreviewRollback(arg1:string):Promise<main.RollbackPreview>;
 
 export function RestartApp():Promise<void>;
+
+export function SaveIncidentReport(arg1:string):Promise<string>;
 
 export function SaveSettings(arg1:config.Config):Promise<void>;
 
