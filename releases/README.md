@@ -16,7 +16,8 @@ they become the body of the GitHub Release.
 
 | Version | Type | Highlights | Release notes |
 | :--- | :--- | :--- | :---: |
-| **v0.3.1** | *Current* · Patch release | Export incidents as Markdown reports (History → Save/Copy report); no more "Connection not found" flash on dashboards; rollback previews keep the "exact changes unknown" warning; tests for engine, rollbacks and updater | [v0.3.1.md](v0.3.1.md) |
+| **v0.4.0** | *Current* · Minor release | Docker-over-SSH monitoring and dashboards; specialist Kiro agents; headless UI screenshot helper; release Discussion announcements and discussion forms | [v0.4.0.md](v0.4.0.md) |
+| **v0.3.1** | Patch release | Export incidents as Markdown reports (History → Save/Copy report); no more "Connection not found" flash on dashboards; rollback previews keep the "exact changes unknown" warning; tests for engine, rollbacks and updater | [v0.3.1.md](v0.3.1.md) |
 | **v0.3.0** | Minor release | Slack, Discord and generic JSON webhook notifications for incidents (Settings → Chat & webhooks), with masked URLs, per-channel severity, test message and delivery status | [v0.3.0.md](v0.3.0.md) |
 | **v0.2.2** | Patch release | Real service logos for connections; Support & community card in Settings; community files (issue forms, contributing, security, sponsor); empty chart axis fix | [v0.2.2.md](v0.2.2.md) |
 | **v0.2.1** | Patch release | Fixes Kubernetes failing in the installed app (kubeconfig lookup, new kubeconfig field); actionable errors for kubeconfig and Docker socket permission problems; collapsible Settings cards | [v0.2.1.md](v0.2.1.md) |

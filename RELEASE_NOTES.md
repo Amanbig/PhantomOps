@@ -1,26 +1,30 @@
-# PhantomOps v0.3.1 👻
+# PhantomOps v0.4.0 👻
 
-PhantomOps **v0.3.1** is a small patch release: you can **export an incident as a Markdown report**, dashboards no longer flash "Connection not found" while loading, and rollback previews now warn you when they cannot show the exact changes.
+PhantomOps **v0.4.0** adds Docker-over-SSH, so a Docker daemon on another Linux host can be monitored without manually creating a tunnel.
 
 ---
 
 ### ✨ New
 
-#### Incident reports
-- In **History**, open an incident and use **Save report…** or **Copy report** to get a Markdown postmortem: summary, root cause and confidence, evidence, recommended action, a UTC timeline, and any rollback actions taken.
-- Reports leave out log excerpts and remove common secrets (private keys, webhook URLs, passwords and tokens). This is best effort, so read a report before you share it.
+#### Docker-over-SSH
+- Add and save an SSH connection first, then select it from a Docker connection's **Run through SSH connection** field.
+- PhantomOps runs fixed, read-only Docker CLI commands on the remote host: `info`, `ps`, `inspect`, `stats` and `logs`.
+- The existing SSH key or agent authentication and `known_hosts` verification are reused.
+- Docker collection and Docker dashboards work through the remote connection.
+- An optional remote Docker socket path can be set; the default is `/var/run/docker.sock`.
+- Container IDs are validated and commands are shell-quoted. No Docker mutation commands are generated.
+
+#### Project tooling
+- Added six workspace specialist agents under `.kiro/agents/` for platform work, collectors, UI, tests, security review and releases.
+- Added `dev/ui/shot.py`, a headless screenshot helper with a stand-in Wails backend.
+- Releases can announce themselves in GitHub Discussions, and Ideas/Q&A discussion forms are included.
 
 ---
 
-### 🔧 Fixes
-- **Dashboards:** opening a connection's dashboard showed "Connection not found" for a moment while loading. It now shows a spinner, and only says "not found" if the connection is really gone. If the settings cannot be read, it says so instead.
-- **Rollback previews:** when PhantomOps could not compare the current and previous versions, the warning that the exact changes were unknown was dropped. It is shown now.
-- Scans with nothing to report now return empty lists instead of nothing.
-
----
-
-### 🧪 Internal
-- Added tests for the correlation engine, rollbacks, and the in-app updater (including refusing tampered downloads).
+### 🔒 Safety
+- Docker-over-SSH requires a saved SSH connection and keeps host-key verification enabled by default.
+- The remote path uses a fixed read-only command set. It does not accept arbitrary commands from the UI.
+- Real SSH and remote Docker testing is still environment-dependent. The release was tested with fake command runners and headless UI fixtures.
 
 ---
 
