@@ -13,7 +13,7 @@
   "info": {
     "companyName": "PhantomOps",
     "productName": "PhantomOps",
-    "productVersion": "0.2.2",
+    "productVersion": "0.3.0",
     "copyright": "Copyright 2026 Amanbig",
     "comments": "The ghost hunter for your infrastructure: correlates Docker, Kubernetes, Nomad, Prometheus, Loki and SSH signals into incidents."
   }
