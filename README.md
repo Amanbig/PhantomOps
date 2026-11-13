@@ -75,7 +75,8 @@ its description. It refuses a tag that does not match the version in `wails.json
 ## Community
 
 - [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Security policy](SECURITY.md)
-- Found a bug or have an idea? [Open an issue](https://github.com/Amanbig/PhantomOps/issues/new/choose).
+- Questions, ideas, or want to show your setup? Start a [discussion](https://github.com/Amanbig/PhantomOps/discussions).
+- Found a bug? [Open an issue](https://github.com/Amanbig/PhantomOps/issues/new/choose).
 - PhantomOps is free. If it helps you, you can [sponsor the project](https://github.com/sponsors/Amanbig).
 
 ## License

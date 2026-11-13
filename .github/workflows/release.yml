@@ -145,6 +145,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      discussions: write
     steps:
       - uses: actions/checkout@v7
 
@@ -177,3 +178,13 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+
+      # Announce the release in Discussions (Announcements). This must never
+      # fail a release: if Discussions or the category are missing, the step
+      # is marked failed but the release above is already published.
+      - name: Announce in Discussions
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: ./scripts/announce-release.sh "${GITHUB_REF_NAME}"
