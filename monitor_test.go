@@ -15,6 +15,7 @@ import (
 	"PhantomOps/internal/history"
 	"PhantomOps/internal/model"
 	"PhantomOps/internal/notify"
+	"PhantomOps/internal/remediate"
 )
 
 func incident(id, title string, sev model.Severity) model.Incident {
@@ -122,5 +123,36 @@ func TestWebhooksSendOnlyForEnabledChannelsAndRecordResult(t *testing.T) {
 	}
 	if _, ok := a.hookStatus["off"]; ok {
 		t.Error("disabled channel must have no status")
+	}
+}
+
+func TestReportFilename(t *testing.T) {
+	now := time.Date(2026, 3, 1, 23, 0, 0, 0, time.UTC)
+	cases := map[string]string{
+		"api crash loop":                  "phantomops-incident-api-crash-loop-2026-03-01.md",
+		"../../etc/passwd: \"x\"":         "phantomops-incident-etc-passwd-x-2026-03-01.md",
+		"!!!":                             "phantomops-incident-report-2026-03-01.md",
+		strings.Repeat("a", 80) + " tail": "phantomops-incident-" + strings.Repeat("a", 40) + "-2026-03-01.md",
+	}
+	for in, want := range cases {
+		if got := reportFilename(in, now); got != want {
+			t.Errorf("reportFilename(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestIncidentReportFromHistory(t *testing.T) {
+	a := newTestApp(t)
+	a.audit = remediate.NewAuditLog(filepath.Join(t.TempDir(), "audit.log"))
+	_, _, _ = a.history.Observe([]model.Incident{incident("c", "crash", model.SeverityCritical)}, true)
+	id := a.history.List()[0].ID
+	_ = a.audit.Append(remediate.Entry{User: "u", Phase: "result", IncidentID: id, Action: "rollback", Target: "default/api", OK: true, Message: "done"})
+
+	md, err := a.IncidentReport(id)
+	if err != nil || !strings.Contains(md, "# Incident report: crash") || !strings.Contains(md, "default/api") {
+		t.Errorf("report = %v\n%s", err, md)
+	}
+	if _, err := a.IncidentReport("missing"); err == nil {
+		t.Error("unknown incident must be an error")
 	}
 }

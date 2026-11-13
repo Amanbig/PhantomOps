@@ -393,3 +393,6 @@ select option { background-color: var(--panel); color: var(--text); }
 .hook-row { padding: 12px 0; border-top: 1px solid var(--border); }
 .hook-row:first-of-type { border-top: 0; padding-top: 0; }
 .hook-msg { margin-top: 8px; }
+
+/* Incident report actions */
+.hist-report { margin-top: 12px; align-items: center; }

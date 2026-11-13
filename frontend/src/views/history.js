@@ -1,4 +1,5 @@
-import {GetHistory, ClearResolvedHistory, MuteRules, UnmuteIncident} from '../../wailsjs/go/main/App';
+import {GetHistory, ClearResolvedHistory, MuteRules, UnmuteIncident, IncidentReport, SaveIncidentReport} from '../../wailsjs/go/main/App';
+import {ClipboardSetText} from '../../wailsjs/runtime/runtime';
 import {esc, clock} from '../util.js';
 
 function duration(from, to) {
@@ -29,6 +30,11 @@ function renderDetail(r) {
         <p>${esc(inv.rootCause || '—')} ${inv.confidence ? `<span class="confidence">${Math.round(inv.confidence * 100)}%</span>` : ''}</p>
         <div class="label">Recommended action</div><p>${esc(inv.recommendedAction || '—')}</p>
         <div class="label">Last timeline</div><ol class="hist-timeline">${tl}</ol>
+        <div class="toolbar-actions hist-report">
+            <button class="btn btn-small btn-secondary" data-report="save" data-id="${esc(r.id)}" title="Save a Markdown postmortem">Save report…</button>
+            <button class="btn btn-small btn-secondary" data-report="copy" data-id="${esc(r.id)}" title="Copy the Markdown postmortem">Copy report</button>
+            <span class="muted small" data-report-msg></span>
+        </div>
     </div>`;
 }
 
@@ -76,6 +82,21 @@ export async function mountHistory(root, {focusId} = {}) {
             const id = h.parentElement.dataset.id;
             expanded.has(id) ? expanded.delete(id) : expanded.add(id);
             render();
+        }));
+        body.querySelectorAll('[data-report]').forEach(b => b.addEventListener('click', async () => {
+            const msg = b.parentElement.querySelector('[data-report-msg]');
+            b.disabled = true;
+            msg.textContent = '';
+            try {
+                if (b.dataset.report === 'copy') {
+                    if (!await ClipboardSetText(await IncidentReport(b.dataset.id))) throw new Error('the clipboard is not available');
+                    msg.textContent = 'Copied. Log excerpts are left out and secrets are removed on a best-effort basis; review before sharing.';
+                } else {
+                    const path = await SaveIncidentReport(b.dataset.id);
+                    if (path) msg.textContent = 'Saved to ' + path;
+                }
+            } catch (err) { msg.textContent = String(err); }
+            b.disabled = false;
         }));
         if (focusId) {
             body.querySelector(`[data-id="${CSS.escape(focusId)}"]`)?.scrollIntoView({block: 'center'});

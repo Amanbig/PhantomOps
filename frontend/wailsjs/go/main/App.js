@@ -54,6 +54,10 @@ export function GetUpdateProgress() {
   return window['go']['main']['App']['GetUpdateProgress']();
 }
 
+export function IncidentReport(arg1) {
+  return window['go']['main']['App']['IncidentReport'](arg1);
+}
+
 export function InstallUpdate(arg1) {
   return window['go']['main']['App']['InstallUpdate'](arg1);
 }
@@ -80,6 +84,10 @@ export function PreviewRollback(arg1) {
 
 export function RestartApp() {
   return window['go']['main']['App']['RestartApp']();
+}
+
+export function SaveIncidentReport(arg1) {
+  return window['go']['main']['App']['SaveIncidentReport'](arg1);
 }
 
 export function SaveSettings(arg1) {
