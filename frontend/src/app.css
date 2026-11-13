@@ -388,3 +388,8 @@ select option { background-color: var(--panel); color: var(--text); }
 .ext-link { color: var(--accent); text-decoration: none; }
 .ext-link:hover { text-decoration: underline; }
 .ext-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* Webhook channels */
+.hook-row { padding: 12px 0; border-top: 1px solid var(--border); }
+.hook-row:first-of-type { border-top: 0; padding-top: 0; }
+.hook-msg { margin-top: 8px; }

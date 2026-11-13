@@ -30,6 +30,7 @@ import (
 	"PhantomOps/internal/engine"
 	"PhantomOps/internal/llm"
 	"PhantomOps/internal/model"
+	"PhantomOps/internal/notify"
 )
 
 // Connection types.
@@ -80,6 +81,8 @@ type Config struct {
 	Remediation    RemediationConfig `json:"remediation"`
 	Monitoring     MonitoringConfig  `json:"monitoring"`
 	Updates        UpdatesConfig     `json:"updates"`
+	// Webhooks are optional chat/JSON destinations for incident messages.
+	Webhooks []notify.Channel `json:"webhooks"`
 }
 
 // UpdatesConfig controls the update check. Checking only sends an anonymous
@@ -293,6 +296,17 @@ func (c *Config) Normalize() {
 	if c.Monitoring.NotifyMinSeverity == "" {
 		c.Monitoring.NotifyMinSeverity = "critical"
 	}
+	for i := range c.Webhooks {
+		w := &c.Webhooks[i]
+		if w.ID == "" {
+			w.ID = NewID()
+		}
+		w.Name = strings.TrimSpace(w.Name)
+		w.URL = strings.TrimSpace(w.URL)
+		if w.MinSeverity == "" {
+			w.MinSeverity = "critical"
+		}
+	}
 	for i := range c.Connections {
 		cn := &c.Connections[i]
 		if cn.ID == "" {
@@ -321,6 +335,23 @@ func (c Config) Validate() error {
 	}
 	if err := c.Monitoring.Validate(); err != nil {
 		problems = append(problems, err.Error())
+	}
+	hookNames := map[string]bool{}
+	for i, w := range c.Webhooks {
+		label := w.Name
+		if label == "" {
+			label = fmt.Sprintf("webhook #%d", i+1)
+		}
+		// A masked URL means "unchanged"; it is restored before validation.
+		if err := w.Validate(); err != nil {
+			problems = append(problems, fmt.Sprintf("%s: %v", label, err))
+		}
+		if n := strings.ToLower(w.Name); n != "" {
+			if hookNames[n] {
+				problems = append(problems, fmt.Sprintf("%s: another webhook already uses this name", label))
+			}
+			hookNames[n] = true
+		}
 	}
 	seen := map[string]bool{}
 	names := map[string]bool{}
@@ -466,6 +497,12 @@ func (c Config) Redacted() Config {
 	if out.AI.APIKey != "" {
 		out.AI.APIKey = SecretMask
 	}
+	out.Webhooks = append([]notify.Channel(nil), c.Webhooks...)
+	for i := range out.Webhooks {
+		if out.Webhooks[i].URL != "" {
+			out.Webhooks[i].URL = SecretMask
+		}
+	}
 	return out
 }
 
@@ -474,6 +511,19 @@ func (c Config) Redacted() Config {
 func (c *Config) RestoreSecrets(old Config) {
 	if c.AI.APIKey == SecretMask {
 		c.AI.APIKey = old.AI.APIKey
+	}
+	for i := range c.Webhooks {
+		w := &c.Webhooks[i]
+		if w.URL != SecretMask {
+			continue
+		}
+		w.URL = ""
+		for _, o := range old.Webhooks {
+			if o.ID == w.ID {
+				w.URL = o.URL
+				break
+			}
+		}
 	}
 	for i := range c.Connections {
 		cn := &c.Connections[i]

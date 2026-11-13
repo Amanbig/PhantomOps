@@ -21,5 +21,5 @@ PhantomOps notifies on new incidents through desktop notifications. Operators al
 - Webhook URLs are secrets: masked in the UI, stored in config with 0600.
 
 ### 5. Reliability
-- Sending SHALL time out and never block monitoring; failures are shown in Activity and not retried endlessly.
+- Sending SHALL time out and never block monitoring; the last delivery result (including errors, never the URL) is shown on the channel in Settings, and a failing endpoint is not retried within a scan.
 - A "Send test message" button SHALL exist per channel.

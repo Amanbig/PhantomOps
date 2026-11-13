@@ -7,6 +7,7 @@ import {history} from '../models';
 import {model} from '../models';
 import {main} from '../models';
 import {engine} from '../models';
+import {notify} from '../models';
 
 export function AcknowledgeIncident(arg1:string):Promise<void>;
 
@@ -53,6 +54,8 @@ export function SaveSettings(arg1:config.Config):Promise<void>;
 export function Scan():Promise<engine.Result>;
 
 export function SendTestNotification():Promise<void>;
+
+export function SendTestWebhook(arg1:notify.Channel):Promise<void>;
 
 export function SnoozeIncident(arg1:string,arg2:number):Promise<void>;
 
