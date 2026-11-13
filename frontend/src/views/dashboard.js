@@ -345,7 +345,7 @@ export async function mountDashboard(root, {connId, goToConnections, goToInciden
     const me = ++activeMount;
     const live = () => me === activeMount;
     const ui = {sort: {}, filter: 'all', q: ''};
-    let timer = null, busy = false, snap = null, error = '', conn = null, health = null, related = [], updated = null;
+    let timer = null, busy = false, loaded = false, gone = false, snap = null, error = '', conn = null, health = null, related = [], updated = null;
 
     async function load() {
         if (busy || !live()) return;
@@ -353,7 +353,7 @@ export async function mountDashboard(root, {connId, goToConnections, goToInciden
         try {
             const [settings, last] = await Promise.all([GetSettings(), LastResult().catch(() => null)]);
             conn = (settings.config.connections || []).find(c => c.id === connId) || null;
-            if (!conn) { error = 'This connection no longer exists.'; snap = null; return; }
+            if (!conn) { error = 'This connection no longer exists.'; gone = true; snap = null; return; }
             health = scanHealth(last)[conn.name] || null;
             related = (last?.incidents || []).filter(i => !i.muted && (i.timeline || []).some(e => e.origin === conn.name));
             if (!conn.enabled) { error = 'This connection is disabled. Enable it to see its dashboard.'; snap = null; return; }
@@ -366,6 +366,7 @@ export async function mountDashboard(root, {connId, goToConnections, goToInciden
             snap = null;
         } finally {
             busy = false;
+            loaded = true;
             if (live()) render();
         }
     }
@@ -373,7 +374,10 @@ export async function mountDashboard(root, {connId, goToConnections, goToInciden
     function render() {
         if (!live()) return;
         if (!conn) {
-            root.innerHTML = `<div class="empty"><h3>Connection not found</h3><p class="muted">${esc(error)}</p></div>`;
+            // Until the first load finishes we cannot know whether it exists.
+            root.innerHTML = !loaded
+                ? '<div class="empty" role="status" aria-live="polite"><p class="ai-pending"><span class="spinner"></span> Loading connection…</p></div>'
+                : `<div class="empty"><h3>${gone ? 'Connection not found' : "Couldn't load this connection"}</h3><p class="muted">${esc(error)}</p></div>`;
             return;
         }
         const t = typeInfo(conn.type);
