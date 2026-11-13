@@ -23,7 +23,7 @@ func (a *App) ConnectionSnapshot(id string) (any, error) {
 		if !cn.Enabled {
 			return nil, errors.New("this connection is disabled; enable it to see its dashboard")
 		}
-		s, ok, err := cn.Snapshotter()
+		s, ok, err := cfg.Snapshotter(cn)
 		if err != nil {
 			return nil, err
 		}

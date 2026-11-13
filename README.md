@@ -23,7 +23,11 @@ checksum. Release notes for every version are kept in [`releases/`](releases/REA
 
 Open the **Connections** tab to add Docker/Podman, Kubernetes (k3s), Prometheus, Loki, Nomad and SSH hosts.
 Each connection can be tested before saving, enabled/disabled, edited or deleted, and **Detect local
-services** finds the ones running on your machine. Until you save, Docker and Kubernetes (`kubectl`) are
+services** finds the ones running on your machine.
+
+For Docker on another Linux host, add and save its SSH connection first, then add Docker and select
+**Run through SSH connection**. PhantomOps runs a fixed, read-only Docker CLI allowlist through the
+verified SSH host key. It does not enable Docker mutations or accept arbitrary remote commands. Until you save, Docker and Kubernetes (`kubectl`) are
 auto-detected so the app works out of the box.
 
 Settings are stored in `$PHANTOM_CONFIG` or `<user config dir>/phantomops/config.json`

@@ -54,8 +54,12 @@ type Connection struct {
 	Name    string `json:"name"`
 	Enabled bool   `json:"enabled"`
 
-	Socket  string `json:"socket"`  // docker
-	Context string `json:"context"` // kubernetes
+	Socket string `json:"socket"` // docker
+	// SSHConnection references an SSH connection used to run read-only Docker CLI commands remotely.
+	SSHConnection string `json:"sshConnection"`
+	// RemoteSocket is the Docker socket path on the SSH host; empty uses Docker's default.
+	RemoteSocket string `json:"remoteSocket"`
+	Context      string `json:"context"` // kubernetes
 	// Kubeconfig is an optional kubeconfig file for kubernetes connections.
 	// Empty means: $KUBECONFIG, then ~/.kube/config, then kubectl's default.
 	Kubeconfig string `json:"kubeconfig"`
@@ -317,6 +321,8 @@ func (c *Config) Normalize() {
 		cn.Addr = strings.TrimSpace(cn.Addr)
 		cn.User = strings.TrimSpace(cn.User)
 		cn.Socket = strings.TrimSpace(cn.Socket)
+		cn.SSHConnection = strings.TrimSpace(cn.SSHConnection)
+		cn.RemoteSocket = strings.TrimSpace(cn.RemoteSocket)
 		cn.Context = strings.TrimSpace(cn.Context)
 		cn.Kubeconfig = strings.TrimSpace(cn.Kubeconfig)
 		cn.KeyPath = strings.TrimSpace(cn.KeyPath)
@@ -379,6 +385,32 @@ func (c Config) Validate() error {
 	if len(problems) > 0 {
 		return errors.New(strings.Join(problems, "; "))
 	}
+	for _, cn := range c.Connections {
+		if cn.Type != TypeDocker || cn.SSHConnection == "" {
+			continue
+		}
+		if cn.RemoteSocket != "" && !strings.HasPrefix(cn.RemoteSocket, "/") {
+			problems = append(problems, fmt.Sprintf("%s: remote Docker socket must be an absolute path", cn.Name))
+		}
+		found := false
+		for _, sshConn := range c.Connections {
+			if sshConn.ID == cn.SSHConnection {
+				found = true
+				if sshConn.Type != TypeSSH {
+					problems = append(problems, fmt.Sprintf("%s: SSH connection reference is not an SSH connection", cn.Name))
+				} else if !sshConn.Enabled {
+					problems = append(problems, fmt.Sprintf("%s: referenced SSH connection is disabled", cn.Name))
+				}
+				break
+			}
+		}
+		if !found {
+			problems = append(problems, fmt.Sprintf("%s: SSH connection was not found", cn.Name))
+		}
+	}
+	if len(problems) > 0 {
+		return errors.New(strings.Join(problems, "; "))
+	}
 	return nil
 }
 
@@ -408,6 +440,26 @@ func (cn Connection) Validate() error {
 		return nil
 	}
 	return fmt.Errorf("unknown connection type %q", cn.Type)
+}
+
+// CollectorFor builds a connection collector with access to the full config,
+// which is needed when a Docker connection references an SSH connection.
+func (c Config) CollectorFor(cn Connection) (collector.Collector, error) {
+	if cn.Type == TypeDocker && cn.SSHConnection != "" {
+		var host *Connection
+		for i := range c.Connections {
+			if c.Connections[i].ID == cn.SSHConnection {
+				host = &c.Connections[i]
+				break
+			}
+		}
+		if host == nil || host.Type != TypeSSH {
+			return nil, fmt.Errorf("SSH connection %q was not found", cn.SSHConnection)
+		}
+		return docker.NewRemote(sshc.Config{Addr: host.Addr, User: host.User, KeyPath: host.KeyPath,
+			KnownHosts: host.KnownHosts, Insecure: host.Insecure}, cn.RemoteSocket)
+	}
+	return cn.Collector()
 }
 
 // Collector builds the collector for this connection.
@@ -446,7 +498,7 @@ func (c Config) Collectors() ([]collector.Collector, []string) {
 		if !cn.Enabled {
 			continue
 		}
-		col, err := cn.Collector()
+		col, err := c.CollectorFor(cn)
 		if err != nil {
 			notes = append(notes, fmt.Sprintf("%s: %v", cn.Name, err))
 			continue
@@ -552,6 +604,17 @@ func onPath(bin string) bool {
 
 // Snapshotter returns the connection's dashboard data source, or ok=false
 // when that connection type has no dashboard yet.
+// Snapshotter builds the snapshotter for this connection, resolving remote
+// Docker connections through their referenced SSH connection.
+func (c Config) Snapshotter(cn Connection) (s collector.Snapshotter, ok bool, err error) {
+	col, err := c.CollectorFor(cn)
+	if err != nil {
+		return nil, false, err
+	}
+	s, ok = col.(collector.Snapshotter)
+	return s, ok, nil
+}
+
 func (cn Connection) Snapshotter() (s collector.Snapshotter, ok bool, err error) {
 	col, err := cn.Collector()
 	if err != nil {

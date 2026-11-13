@@ -8,8 +8,12 @@ const TYPES = {
     docker: {
         label: 'Docker / Podman',
         blurb: 'Container state, restarts, OOM kills, memory and error logs.',
-        fields: [{key: 'socket', label: 'Socket path', placeholder: '/var/run/docker.sock',
-            help: 'Leave empty for the default. Podman works through its Docker-compatible socket.'}],
+        fields: [{key: 'socket', label: 'Local socket path', placeholder: '/var/run/docker.sock',
+            help: 'Leave empty for the default. Podman works through its Docker-compatible socket.'},
+            {key: 'sshConnection', label: 'Run through SSH connection', type: 'ssh-select',
+                help: 'Optional. Select a saved SSH connection to run read-only Docker CLI checks on that host.'},
+            {key: 'remoteSocket', label: 'Remote Docker socket', placeholder: '/var/run/docker.sock',
+                help: 'Only used through SSH. Leave empty for Docker\'s default socket.'}],
     },
     kubernetes: {
         label: 'Kubernetes',
@@ -144,7 +148,7 @@ function cloneConfig() {
 
 function summary(c) {
     switch (c.type) {
-        case 'docker': return c.socket || '/var/run/docker.sock';
+        case 'docker': return c.sshConnection ? `via SSH · ${c.remoteSocket || '/var/run/docker.sock'}` : (c.socket || '/var/run/docker.sock');
         case 'kubernetes': return (c.context ? `context: ${c.context}` : 'current kubectl context') + (c.kubeconfig ? ` · ${c.kubeconfig}` : '');
         case 'ssh': return `${c.user}@${c.addr}` + (c.expectedPorts?.length ? ` · ports ${c.expectedPorts.join(', ')}` : '');
         default: return c.url;
@@ -152,7 +156,7 @@ function summary(c) {
 }
 
 function sameTarget(a, b) {
-    return a.type === b.type && (a.socket || '') === (b.socket || '') && (a.context || '') === (b.context || '') &&
+    return a.type === b.type && (a.socket || '') === (b.socket || '') && (a.sshConnection || '') === (b.sshConnection || '') && (a.remoteSocket || '') === (b.remoteSocket || '') && (a.context || '') === (b.context || '') &&
         (a.url || '') === (b.url || '') && (a.addr || '') === (b.addr || '') && (a.kubeconfig || '') === (b.kubeconfig || '');
 }
 
@@ -422,6 +426,11 @@ function renderForm() {
                     return `<label class="check"><input type="checkbox" name="${fd.key}" ${c[fd.key] ? 'checked' : ''}> ${esc(fd.label)}
                         ${fd.help ? `<span class="muted small">${esc(fd.help)}</span>` : ''}</label>`;
                 }
+                if (fd.type === 'ssh-select') {
+                    const ssh = (state.settings?.config?.connections || []).filter(x => x.type === 'ssh');
+                    return `<label>${esc(fd.label)}<select name="${esc(fd.key)}"><option value="">Local Docker</option>${ssh.map(x => `<option value="${esc(x.id)}" ${c[fd.key] === x.id ? 'selected' : ''}>${esc(x.name)} · ${esc(x.user || '')}@${esc(x.addr || '')}</option>`).join('')}</select>
+                        ${fd.help ? `<span class="muted small">${esc(fd.help)}</span>` : ''}</label>`;
+                }
                 return `<label>${esc(fd.label)}${fd.required ? ' *' : ''}
                     <input name="${fd.key}" type="${fd.type || 'text'}" value="${esc(v)}" placeholder="${esc(fd.placeholder || '')}" ${fd.required ? 'required' : ''}>
                     ${fd.help ? `<span class="muted small">${esc(fd.help)}</span>` : ''}</label>`;
@@ -458,7 +467,7 @@ function readForm() {
 
 function blankConn(type) {
     const t = TYPES[type];
-    return {id: '', type, name: t.label, enabled: true, socket: '', context: '', kubeconfig: '', url: '', query: '', token: '',
+    return {id: '', type, name: t.label, enabled: true, socket: '', sshConnection: '', remoteSocket: '', context: '', kubeconfig: '', url: '', query: '', token: '',
         addr: '', user: '', keyPath: '', knownHosts: '', insecure: false, expectedPorts: []};
 }
 

@@ -381,7 +381,7 @@ export async function mountDashboard(root, {connId, goToConnections, goToInciden
             return;
         }
         const t = typeInfo(conn.type);
-        const target = conn.type === 'docker' ? (conn.socket || '/var/run/docker.sock') : conn.type === 'kubernetes' ? (conn.context ? `context ${conn.context}` : 'current kubectl context')
+        const target = conn.type === 'docker' ? (conn.sshConnection ? `via SSH · ${conn.remoteSocket || '/var/run/docker.sock'}` : (conn.socket || '/var/run/docker.sock')) : conn.type === 'kubernetes' ? (conn.context ? `context ${conn.context}` : 'current kubectl context')
             : conn.type === 'ssh' ? `${conn.user}@${conn.addr}` : conn.url;
         const supported = DASHBOARD_TYPES.has(conn.type);
         const dot = !conn.enabled ? 'dot-off' : error ? 'dot-bad' : snap || health?.ok ? 'dot-ok' : health ? 'dot-bad' : 'dot-idle';
