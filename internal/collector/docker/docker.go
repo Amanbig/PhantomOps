@@ -145,7 +145,13 @@ func (c *Collector) logEvents(ctx context.Context, id, name string, tty bool, si
 		return nil
 	}
 	var matches []string
-	for _, l := range demuxLogs(raw, tty) {
+	var lines []string
+	if c.api.remote != nil {
+		lines = splitLines(string(raw))
+	} else {
+		lines = demuxLogs(raw, tty)
+	}
+	for _, l := range lines {
 		if errorLine.MatchString(l) {
 			matches = append(matches, l)
 		}

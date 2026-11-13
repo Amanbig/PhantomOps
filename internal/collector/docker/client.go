@@ -25,6 +25,7 @@ const DefaultSocket = "/var/run/docker.sock"
 type apiClient struct {
 	http   *http.Client
 	socket string
+	remote func(context.Context, string, url.Values) ([]byte, error)
 }
 
 func newAPIClient(socket string) *apiClient {
@@ -40,6 +41,9 @@ func newAPIClient(socket string) *apiClient {
 }
 
 func (c *apiClient) get(ctx context.Context, path string, q url.Values) ([]byte, error) {
+	if c.remote != nil {
+		return c.remote(ctx, path, q)
+	}
 	u := "http://docker" + path
 	if len(q) > 0 {
 		u += "?" + q.Encode()

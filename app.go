@@ -191,12 +191,27 @@ func (a *App) TestConnection(conn config.Connection) TestResult {
 	// A masked token means "unchanged": use the stored one.
 	probe := config.Config{Connections: []config.Connection{conn}}
 	a.mu.Lock()
-	probe.RestoreSecrets(a.cfg)
+	old := a.cfg
+	probe.RestoreSecrets(old)
+	full := a.cfg
 	a.mu.Unlock()
 	probe.Normalize()
 	conn = probe.Connections[0]
+	if conn.ID != "" {
+		replaced := false
+		for i := range full.Connections {
+			if full.Connections[i].ID == conn.ID {
+				full.Connections[i] = conn
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			full.Connections = append(full.Connections, conn)
+		}
+	}
 
-	col, err := conn.Collector()
+	col, err := full.CollectorFor(conn)
 	if err != nil {
 		return TestResult{Message: err.Error()}
 	}
