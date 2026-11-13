@@ -1,0 +1,20 @@
+title: "[Question] "
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+  - type: input
+    id: version
+    attributes:
+      label: PhantomOps version
+      description: Settings → About & updates
+  - type: markdown
+    attributes:
+      value: "Please remove secrets (tokens, passwords, webhook URLs) from anything you paste."
