@@ -99,7 +99,14 @@ func (e *Engine) Scan(ctx context.Context) Result {
 		all = append(all, r.events...)
 	}
 	incidents, warnings := e.Analyze(all)
-	res.Incidents, res.Warnings = incidents, warnings
+	// Keep the empty (non-nil) lists when there is nothing to report, so the
+	// UI receives [] and not null.
+	if incidents != nil {
+		res.Incidents = incidents
+	}
+	if warnings != nil {
+		res.Warnings = warnings
+	}
 	return res
 }
 
