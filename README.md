@@ -61,6 +61,13 @@ not). Messages only contain the title, severity and root-cause summary. The webh
 owner-only config file and masked in the UI. **Activity → Webhook deliveries** lists the most recent messages
 and whether each arrived (including the ones skipped after a failure); it is kept in memory and holds no URLs.
 
+## Incident reports
+
+On **Incidents** (live) and **History**, **Save report…** writes a Markdown postmortem of an incident and
+**Copy report** puts it on the clipboard: summary, root cause and confidence, evidence, a UTC timeline, and any
+rollback actions taken. Log excerpts are left out and common secrets (keys, tokens, passwords, webhook URLs)
+are removed, on a best-effort basis, so read a report before you share it.
+
 ## Try it without the GUI
 
 ```sh
