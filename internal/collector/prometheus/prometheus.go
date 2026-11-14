@@ -78,11 +78,19 @@ type Collector struct {
 
 // New creates a collector for the Prometheus server at baseURL.
 // Pass nil rules to use DefaultRules.
-func New(baseURL string, rules []Rule) *Collector {
+func New(baseURL string, rules []Rule) *Collector { return NewVia(baseURL, rules, nil) }
+
+// NewVia is New with a custom transport, used to reach Prometheus through an
+// SSH tunnel. A nil transport means a direct connection.
+func NewVia(baseURL string, rules []Rule, rt http.RoundTripper) *Collector {
 	if rules == nil {
 		rules = DefaultRules()
 	}
-	return &Collector{base: baseURL, http: httpx.NewClient(), rules: rules,
+	hc := httpx.NewClient()
+	if rt != nil {
+		hc.Transport = rt
+	}
+	return &Collector{base: baseURL, http: hc, rules: rules,
 		now: func() time.Time { return time.Now().UTC() }}
 }
 

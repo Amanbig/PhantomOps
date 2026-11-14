@@ -40,11 +40,19 @@ type Collector struct {
 }
 
 // New creates a Loki collector. Pass an empty query to use DefaultQuery.
-func New(baseURL, logQL string) *Collector {
+func New(baseURL, logQL string) *Collector { return NewVia(baseURL, logQL, nil) }
+
+// NewVia is New with a custom transport, used to reach Loki through an SSH
+// tunnel. A nil transport means a direct connection.
+func NewVia(baseURL, logQL string, rt http.RoundTripper) *Collector {
 	if logQL == "" {
 		logQL = DefaultQuery
 	}
-	return &Collector{base: baseURL, query: logQL, http: httpx.NewClient(),
+	hc := httpx.NewClient()
+	if rt != nil {
+		hc.Transport = rt
+	}
+	return &Collector{base: baseURL, query: logQL, http: hc,
 		now: func() time.Time { return time.Now().UTC() }}
 }
 

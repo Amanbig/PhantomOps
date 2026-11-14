@@ -39,7 +39,7 @@ var remoteAllowed = func() map[string]bool {
 // remoteKubeconfig is an absolute path on that host; empty uses kubectl's own
 // lookup there ($KUBECONFIG, then ~/.kube/config).
 func NewRemote(sshCfg ssh.Config, kubeContext, remoteKubeconfig string) (*Collector, error) {
-	r, err := ssh.NewCommandRunner(sshCfg)
+	r, err := ssh.Shared(sshCfg)
 	if err != nil {
 		return nil, err
 	}

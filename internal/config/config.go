@@ -55,9 +55,10 @@ type Connection struct {
 	Enabled bool   `json:"enabled"`
 
 	Socket string `json:"socket"` // docker
-	// SSHConnection references a saved SSH connection. A Docker or Kubernetes
-	// connection that sets it runs fixed read-only CLI commands on that host
-	// instead of locally. Rollbacks are never performed through it.
+	// SSHConnection references a saved SSH connection. Docker and Kubernetes
+	// connections that set it run fixed read-only CLI commands on that host;
+	// Nomad, Prometheus and Loki reach their URL through a read-only (GET/HEAD)
+	// tunnel to that host. Rollbacks are never performed through it.
 	SSHConnection string `json:"sshConnection"`
 	// RemoteSocket is the Docker socket path on the SSH host; empty uses Docker's default.
 	RemoteSocket string `json:"remoteSocket"`
@@ -385,7 +386,7 @@ func (c Config) Validate() error {
 		return errors.New(strings.Join(problems, "; "))
 	}
 	for _, cn := range c.Connections {
-		if (cn.Type != TypeDocker && cn.Type != TypeKubernetes) || cn.SSHConnection == "" {
+		if !runsThroughSSH(cn) || cn.SSHConnection == "" {
 			continue
 		}
 		if cn.Type == TypeDocker && cn.RemoteSocket != "" && !strings.HasPrefix(cn.RemoteSocket, "/") {
@@ -445,6 +446,17 @@ func (cn Connection) Validate() error {
 	return fmt.Errorf("unknown connection type %q", cn.Type)
 }
 
+// runsThroughSSH reports whether a connection type can read its service
+// through a saved SSH connection: Docker and Kubernetes by running read-only
+// CLI commands on the host, the HTTP services through a read-only tunnel.
+func runsThroughSSH(cn Connection) bool {
+	switch cn.Type {
+	case TypeDocker, TypeKubernetes, TypeNomad, TypePrometheus, TypeLoki:
+		return true
+	}
+	return false
+}
+
 // sshHost returns the SSH settings of the connection a Docker or Kubernetes
 // connection runs through.
 func (c Config) sshHost(cn Connection) (sshc.Config, error) {
@@ -458,20 +470,38 @@ func (c Config) sshHost(cn Connection) (sshc.Config, error) {
 }
 
 // CollectorFor builds a connection collector with access to the full config,
-// which is needed when a Docker or Kubernetes connection runs through a saved
-// SSH connection.
+// which is needed when a connection runs through a saved SSH connection.
 func (c Config) CollectorFor(cn Connection) (collector.Collector, error) {
-	if cn.SSHConnection != "" && (cn.Type == TypeDocker || cn.Type == TypeKubernetes) {
-		host, err := c.sshHost(cn)
-		if err != nil {
-			return nil, err
-		}
-		if cn.Type == TypeDocker {
-			return docker.NewRemote(host, cn.RemoteSocket)
-		}
-		return kubernetes.NewRemote(host, cn.Context, cn.RemoteKubeconfig)
+	if cn.SSHConnection == "" || !runsThroughSSH(cn) {
+		return cn.Collector()
 	}
-	return cn.Collector()
+	if err := cn.Validate(); err != nil {
+		return nil, err
+	}
+	cfg, err := c.sshHost(cn)
+	if err != nil {
+		return nil, err
+	}
+	switch cn.Type {
+	case TypeDocker:
+		return docker.NewRemote(cfg, cn.RemoteSocket)
+	case TypeKubernetes:
+		return kubernetes.NewRemote(cfg, cn.Context, cn.RemoteKubeconfig)
+	}
+	host, err := sshc.Shared(cfg)
+	if err != nil {
+		return nil, err
+	}
+	rt := sshc.HTTPTransport(host)
+	switch cn.Type {
+	case TypeNomad:
+		return nomad.NewVia(cn.URL, cn.Token, rt), nil
+	case TypePrometheus:
+		return prometheus.NewVia(cn.URL, nil, rt), nil
+	case TypeLoki:
+		return loki.NewVia(cn.URL, cn.Query, rt), nil
+	}
+	return nil, fmt.Errorf("connections of type %q cannot run through SSH", cn.Type)
 }
 
 // Collector builds the collector for this connection.

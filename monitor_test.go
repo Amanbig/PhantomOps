@@ -175,3 +175,21 @@ func TestRollbackIsRefusedForConnectionsThatReadThroughSSH(t *testing.T) {
 		t.Errorf("a direct connection must still be allowed: %v", err)
 	}
 }
+
+func TestNomadRollbackIsRefusedThroughSSH(t *testing.T) {
+	a := newTestApp(t)
+	a.cfg.Connections = []config.Connection{
+		{ID: "ssh1", Type: config.TypeSSH, Name: "edge", Enabled: true, Addr: "edge:22", User: "ops"},
+		{ID: "n1", Type: config.TypeNomad, Name: "edge-nomad", Enabled: true, URL: "http://127.0.0.1:4646", SSHConnection: "ssh1"},
+		{ID: "n2", Type: config.TypeNomad, Name: "local-nomad", Enabled: true, URL: "http://127.0.0.1:4646"},
+	}
+	inv := func(conn string) model.Investigation {
+		return model.Investigation{Action: "rollback", Target: "default/web", TargetSource: "nomad", TargetConnection: conn}
+	}
+	if _, err := a.executorFor(inv("edge-nomad")); err == nil || !strings.Contains(err.Error(), "monitoring only") {
+		t.Errorf("a Nomad rollback through SSH must be refused, got %v", err)
+	}
+	if ex, err := a.executorFor(inv("local-nomad")); err != nil || ex == nil {
+		t.Errorf("a direct Nomad connection must still be allowed: %v", err)
+	}
+}

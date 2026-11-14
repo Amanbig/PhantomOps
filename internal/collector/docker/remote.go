@@ -31,7 +31,7 @@ func newRemoteAPIClient(r commandRunner, socket string) *apiClient {
 // NewRemote creates a read-only Docker collector that runs the Docker CLI on
 // the host reached through the supplied, host-key-verified SSH config.
 func NewRemote(sshCfg ssh.Config, socket string) (*Collector, error) {
-	r, err := ssh.NewCommandRunner(sshCfg)
+	r, err := ssh.Shared(sshCfg)
 	if err != nil {
 		return nil, err
 	}

@@ -32,7 +32,11 @@ const TYPES = {
     prometheus: {
         label: 'Prometheus',
         blurb: 'Metric anomalies: memory growth, targets down, firing alerts, 5xx rates.',
-        fields: [{key: 'url', label: 'URL', placeholder: 'http://localhost:9090', required: true}],
+        fields: [
+            {key: 'url', label: 'URL', placeholder: 'http://localhost:9090', required: true},
+            {key: 'sshConnection', label: 'Run through SSH connection', type: 'ssh-select',
+            help: 'Optional. For a service on another server: connect through a saved SSH connection (read-only; nothing opens on this computer). The URL is then the address as seen from that server, e.g. http://127.0.0.1:9090. Needs port forwarding allowed on the SSH server.'},
+        ],
     },
     loki: {
         label: 'Loki',
@@ -40,6 +44,8 @@ const TYPES = {
         fields: [
             {key: 'url', label: 'URL', placeholder: 'http://localhost:3100', required: true},
             {key: 'query', label: 'LogQL query', placeholder: '(default: error lines from all services)'},
+            {key: 'sshConnection', label: 'Run through SSH connection', type: 'ssh-select',
+            help: 'Optional. For a service on another server: connect through a saved SSH connection (read-only; nothing opens on this computer). The URL is then the address as seen from that server, e.g. http://127.0.0.1:3100. Needs port forwarding allowed on the SSH server.'},
         ],
     },
     nomad: {
@@ -49,6 +55,8 @@ const TYPES = {
             {key: 'url', label: 'URL', placeholder: 'http://localhost:4646', required: true},
             {key: 'token', label: 'ACL token', type: 'password', placeholder: '(optional)',
                 help: 'Stored locally in the config file (owner-only permissions).'},
+            {key: 'sshConnection', label: 'Run through SSH connection', type: 'ssh-select',
+            help: 'Optional. For a service on another server: connect through a saved SSH connection (read-only; nothing opens on this computer). The URL is then the address as seen from that server, e.g. http://127.0.0.1:4646. Needs port forwarding allowed on the SSH server.'},
         ],
     },
     ssh: {
@@ -156,7 +164,7 @@ function summary(c) {
         case 'kubernetes': return c.sshConnection ? `via SSH · ${c.context ? 'context: ' + c.context : 'current kubectl context'}${c.remoteKubeconfig ? ' · ' + c.remoteKubeconfig : ''}`
             : (c.context ? `context: ${c.context}` : 'current kubectl context') + (c.kubeconfig ? ` · ${c.kubeconfig}` : '');
         case 'ssh': return `${c.user}@${c.addr}` + (c.expectedPorts?.length ? ` · ports ${c.expectedPorts.join(', ')}` : '');
-        default: return c.url;
+        default: return (c.sshConnection ? 'via SSH · ' : '') + c.url;
     }
 }
 
