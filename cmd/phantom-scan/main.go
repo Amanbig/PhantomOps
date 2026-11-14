@@ -39,6 +39,10 @@ func main() {
 			cfg.IgnoreSubjects = append(cfg.IgnoreSubjects, s)
 		}
 	}
+	if len(cfg.Connections) == 0 && *replay == "" {
+		fmt.Fprintf(os.Stderr, "no connections are configured in %s, so there is nothing to scan.\n"+
+			"Add connections in the app (Connections -> Detect local services), or see dev/config.example.json.\n", *cfgPath)
+	}
 	eng, notes := cfg.Engine()
 	for _, n := range notes {
 		fmt.Fprintln(os.Stderr, "config note:", n)

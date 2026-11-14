@@ -68,7 +68,7 @@ const TYPES = {
     },
 };
 
-const DEFAULT_COUNT_HINT = 'Add a service to start investigating.';
+const DEFAULT_COUNT_HINT = 'Nothing is connected yet. Add a service, or use “Detect local services” to find Docker and kubectl on this computer.';
 
 const AI_PRESETS = {
     ollama: {label: 'Ollama (local)', url: 'http://localhost:11434/v1', keyHelp: 'Not needed for a local Ollama.'},
@@ -209,8 +209,6 @@ function render() {
                 <button class="btn" id="add">+ Add connection</button>
             </div></div>
         ${state.error ? `<div class="alert alert-bad">${esc(state.error)}</div>` : ''}
-        ${!saved ? `<div class="alert">These connections were auto-detected and are not saved yet.
-            <button class="btn btn-small" id="save-defaults">Save them</button></div>` : ''}
         ${(notes || []).map(n => `<div class="alert alert-bad">${esc(n)}</div>`).join('')}
         ${state.detected ? renderDetected(conns) : ''}
         <div class="conn-list">
@@ -498,7 +496,6 @@ function bind() {
         render();
     });
     $('#close-detected')?.addEventListener('click', () => { state.detected = null; render(); });
-    $('#save-defaults')?.addEventListener('click', () => persist(cloneConfig(), 'Connections saved'));
 
     root.querySelectorAll('[data-add-detected]').forEach(b => b.addEventListener('click', () => {
         const fresh = state.detected.filter(d => !state.settings.config.connections.some(e => sameTarget(e, d)));

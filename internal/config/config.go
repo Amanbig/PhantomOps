@@ -214,8 +214,8 @@ func NewID() string {
 }
 
 // Load reads the config file. saved is false when the file does not exist;
-// in that case the returned config holds auto-detected Docker/Kubernetes
-// connections so PhantomOps works out of the box.
+// the returned config then has no connections. Nothing is connected until the
+// user adds it (or runs "Detect local services" and adds what it finds).
 func Load(path string) (cfg Config, saved bool, err error) {
 	if path != "" {
 		b, rerr := os.ReadFile(path)
@@ -232,18 +232,11 @@ func Load(path string) (cfg Config, saved bool, err error) {
 	return Defaults(), false, nil
 }
 
-// Defaults returns the configuration used before anything is saved.
+// Defaults returns the configuration used before anything is saved: empty.
+// PhantomOps never starts reading a Docker socket or a cluster that the user
+// has not chosen.
 func Defaults() Config {
-	cfg := Config{WindowMinutes: 30}
-	if fileExists(docker.DefaultSocket) {
-		cfg.Connections = append(cfg.Connections, Connection{
-			ID: NewID(), Type: TypeDocker, Name: "Local Docker", Enabled: true, Socket: docker.DefaultSocket})
-	}
-	if onPath("kubectl") {
-		cfg.Connections = append(cfg.Connections, Connection{
-			ID: NewID(), Type: TypeKubernetes, Name: "Kubernetes (current context)", Enabled: true})
-	}
-	return cfg
+	return Config{WindowMinutes: 30}
 }
 
 // Save validates and atomically writes the config with 0600 permissions.

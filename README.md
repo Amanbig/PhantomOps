@@ -31,8 +31,8 @@ Kubernetes and select **Run through SSH connection**. PhantomOps runs a fixed, r
 remote commands. Requirements on the remote host: `docker` or `kubectl` on the SSH user's `PATH`
 (non-interactive SSH does not read `~/.bashrc`), a user allowed to use Docker, and for Kubernetes a
 readable kubeconfig (set **Remote kubeconfig file** if it is not `~/.kube/config`). This is monitoring only:
-rollbacks are never performed through SSH. Until you save, Docker and Kubernetes (`kubectl`) are
-auto-detected so the app works out of the box.
+rollbacks are never performed through SSH. Nothing is connected by default: a fresh install
+reads no Docker socket or cluster until you add a connection or run **Detect local services** and add what it finds.
 
 Settings are stored in `$PHANTOM_CONFIG` or `<user config dir>/phantomops/config.json`
 (`~/.config/phantomops/config.json` on Linux) with owner-only permissions, since it may hold tokens.

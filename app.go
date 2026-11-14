@@ -49,8 +49,8 @@ type AITestResult struct {
 type Settings struct {
 	Config config.Config `json:"config"` // secrets are masked
 	Path   string        `json:"path"`
-	// Saved is false when the config file does not exist yet and the
-	// connections shown are auto-detected defaults.
+	// Saved is false when the config file does not exist yet (nothing is
+	// connected until the user adds it).
 	Saved bool     `json:"saved"`
 	Notes []string `json:"notes"`
 }
