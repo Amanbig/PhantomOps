@@ -16,7 +16,8 @@ they become the body of the GitHub Release.
 
 | Version | Type | Highlights | Release notes |
 | :--- | :--- | :--- | :---: |
-| **v0.4.0** | *Current* · Minor release | Docker-over-SSH monitoring and dashboards; specialist Kiro agents; headless UI screenshot helper; release Discussion announcements and discussion forms | [v0.4.0.md](v0.4.0.md) |
+| **v0.5.0** | *Current* · Minor release | Kubernetes, Nomad, Prometheus and Loki through SSH (read-only); check and trust an SSH server's host key from the app; nothing is connected by default on a fresh install; report buttons on Incidents; webhook delivery history in Activity | [v0.5.0.md](v0.5.0.md) |
+| **v0.4.0** | Minor release | Docker-over-SSH monitoring and dashboards; specialist Kiro agents; headless UI screenshot helper; release Discussion announcements and discussion forms | [v0.4.0.md](v0.4.0.md) |
 | **v0.3.1** | Patch release | Export incidents as Markdown reports (History → Save/Copy report); no more "Connection not found" flash on dashboards; rollback previews keep the "exact changes unknown" warning; tests for engine, rollbacks and updater | [v0.3.1.md](v0.3.1.md) |
 | **v0.3.0** | Minor release | Slack, Discord and generic JSON webhook notifications for incidents (Settings → Chat & webhooks), with masked URLs, per-channel severity, test message and delivery status | [v0.3.0.md](v0.3.0.md) |
 | **v0.2.2** | Patch release | Real service logos for connections; Support & community card in Settings; community files (issue forms, contributing, security, sponsor); empty chart axis fix | [v0.2.2.md](v0.2.2.md) |
