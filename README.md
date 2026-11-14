@@ -86,10 +86,33 @@ Nomad, SSH) for exercising each collector.
 
 ## Development
 
+You need Go 1.25+, Node 20+ and [Wails v2](https://wails.io/docs/gettingstarted/installation) (`wails doctor`
+checks your setup).
+
+| Platform | Run with live reload | Local build | Extra requirements |
+| :--- | :--- | :--- | :--- |
+| Linux | `wails dev -tags webkit2_41` | `wails build -tags webkit2_41` | GTK 3 and WebKitGTK 4.1 development packages (for example `libgtk-3-dev libwebkit2gtk-4.1-dev` on Debian/Ubuntu) |
+| macOS | `wails dev` | `wails build` | Xcode command line tools |
+| Windows | `wails dev` | `wails build` (add `-nsis` for the installer) | WebView2 runtime (ships with current Windows 10/11); [NSIS](https://nsis.sourceforge.io/) only for `-nsis` |
+
+The `webkit2_41` build tag is **Linux only**: it selects the WebKitGTK 4.1 bindings. macOS and Windows do not use
+it. `wails dev` reports the version as `dev`, and a `dev` build never offers or installs updates.
+
+Linux is the best-tested platform. Windows and macOS packages are built by the
+[release workflow](.github/workflows/release.yml) on every release, but they get far less hands-on testing, so reports
+from those platforms are especially welcome.
+
 ```sh
-wails dev -tags webkit2_41    # live development (reports version "dev")
-wails build -tags webkit2_41  # local build
 python3 scripts/icons.py      # regenerate all icons after editing build/appicon*.svg
+```
+
+Before committing (CI runs these and a few more on every pull request; on macOS and Windows leave out `-tags webkit2_41`):
+
+```sh
+gofmt -l .                            # must print nothing
+go vet -tags webkit2_41 ./...
+go test ./internal/...
+(cd frontend && npm run build)
 ```
 
 ## Releasing
