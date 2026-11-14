@@ -1,4 +1,4 @@
-import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, SendTestWebhook, GetMonitorStatus, LastResult, GetAppVersion, PendingUpdate} from '../../wailsjs/go/main/App';
+import {GetSettings, SaveSettings, TestConnection, InspectSSHHostKey, TrustSSHHostKey, DetectServices, TestAI, SendTestNotification, SendTestWebhook, GetMonitorStatus, LastResult, GetAppVersion, PendingUpdate} from '../../wailsjs/go/main/App';
 import {esc, clock} from '../util.js';
 import {logo} from '../logos.js';
 import {mountUpdates} from './updates.js';
@@ -23,12 +23,20 @@ const TYPES = {
                 help: 'Leave empty to use the current context.'},
             {key: 'kubeconfig', label: 'kubeconfig file', placeholder: '(automatic)',
                 help: 'Leave empty to use $KUBECONFIG, then ~/.kube/config. Set it if the app cannot find your cluster, e.g. when started from the desktop menu.'},
+            {key: 'sshConnection', label: 'Run through SSH connection', type: 'ssh-select',
+                help: 'Optional. For a cluster on another server: run read-only kubectl checks on that host over a saved SSH connection. Monitoring only; rollbacks are not performed through SSH, and the local kubeconfig above is not used.'},
+            {key: 'remoteKubeconfig', label: 'Remote kubeconfig file', placeholder: '/home/user/.kube/config',
+                help: 'Only used through SSH. Absolute path on that host (~ is not expanded). Leave empty to use kubectl\'s own lookup there. Non-interactive SSH does not read ~/.bashrc, so set this if kubectl cannot find the cluster.'},
         ],
     },
     prometheus: {
         label: 'Prometheus',
         blurb: 'Metric anomalies: memory growth, targets down, firing alerts, 5xx rates.',
-        fields: [{key: 'url', label: 'URL', placeholder: 'http://localhost:9090', required: true}],
+        fields: [
+            {key: 'url', label: 'URL', placeholder: 'http://localhost:9090', required: true},
+            {key: 'sshConnection', label: 'Run through SSH connection', type: 'ssh-select',
+            help: 'Optional. For a service on another server: connect through a saved SSH connection (read-only; nothing opens on this computer). The URL is then the address as seen from that server, e.g. http://127.0.0.1:9090. Needs port forwarding allowed on the SSH server.'},
+        ],
     },
     loki: {
         label: 'Loki',
@@ -36,6 +44,8 @@ const TYPES = {
         fields: [
             {key: 'url', label: 'URL', placeholder: 'http://localhost:3100', required: true},
             {key: 'query', label: 'LogQL query', placeholder: '(default: error lines from all services)'},
+            {key: 'sshConnection', label: 'Run through SSH connection', type: 'ssh-select',
+            help: 'Optional. For a service on another server: connect through a saved SSH connection (read-only; nothing opens on this computer). The URL is then the address as seen from that server, e.g. http://127.0.0.1:3100. Needs port forwarding allowed on the SSH server.'},
         ],
     },
     nomad: {
@@ -45,6 +55,8 @@ const TYPES = {
             {key: 'url', label: 'URL', placeholder: 'http://localhost:4646', required: true},
             {key: 'token', label: 'ACL token', type: 'password', placeholder: '(optional)',
                 help: 'Stored locally in the config file (owner-only permissions).'},
+            {key: 'sshConnection', label: 'Run through SSH connection', type: 'ssh-select',
+            help: 'Optional. For a service on another server: connect through a saved SSH connection (read-only; nothing opens on this computer). The URL is then the address as seen from that server, e.g. http://127.0.0.1:4646. Needs port forwarding allowed on the SSH server.'},
         ],
     },
     ssh: {
@@ -64,7 +76,7 @@ const TYPES = {
     },
 };
 
-const DEFAULT_COUNT_HINT = 'Add a service to start investigating.';
+const DEFAULT_COUNT_HINT = 'Nothing is connected yet. Add a service, or use “Detect local services” to find Docker and kubectl on this computer.';
 
 const AI_PRESETS = {
     ollama: {label: 'Ollama (local)', url: 'http://localhost:11434/v1', keyHelp: 'Not needed for a local Ollama.'},
@@ -149,14 +161,15 @@ function cloneConfig() {
 function summary(c) {
     switch (c.type) {
         case 'docker': return c.sshConnection ? `via SSH · ${c.remoteSocket || '/var/run/docker.sock'}` : (c.socket || '/var/run/docker.sock');
-        case 'kubernetes': return (c.context ? `context: ${c.context}` : 'current kubectl context') + (c.kubeconfig ? ` · ${c.kubeconfig}` : '');
+        case 'kubernetes': return c.sshConnection ? `via SSH · ${c.context ? 'context: ' + c.context : 'current kubectl context'}${c.remoteKubeconfig ? ' · ' + c.remoteKubeconfig : ''}`
+            : (c.context ? `context: ${c.context}` : 'current kubectl context') + (c.kubeconfig ? ` · ${c.kubeconfig}` : '');
         case 'ssh': return `${c.user}@${c.addr}` + (c.expectedPorts?.length ? ` · ports ${c.expectedPorts.join(', ')}` : '');
-        default: return c.url;
+        default: return (c.sshConnection ? 'via SSH · ' : '') + c.url;
     }
 }
 
 function sameTarget(a, b) {
-    return a.type === b.type && (a.socket || '') === (b.socket || '') && (a.sshConnection || '') === (b.sshConnection || '') && (a.remoteSocket || '') === (b.remoteSocket || '') && (a.context || '') === (b.context || '') &&
+    return a.type === b.type && (a.socket || '') === (b.socket || '') && (a.sshConnection || '') === (b.sshConnection || '') && (a.remoteSocket || '') === (b.remoteSocket || '') && (a.remoteKubeconfig || '') === (b.remoteKubeconfig || '') && (a.context || '') === (b.context || '') &&
         (a.url || '') === (b.url || '') && (a.addr || '') === (b.addr || '') && (a.kubeconfig || '') === (b.kubeconfig || '');
 }
 
@@ -204,8 +217,6 @@ function render() {
                 <button class="btn" id="add">+ Add connection</button>
             </div></div>
         ${state.error ? `<div class="alert alert-bad">${esc(state.error)}</div>` : ''}
-        ${!saved ? `<div class="alert">These connections were auto-detected and are not saved yet.
-            <button class="btn btn-small" id="save-defaults">Save them</button></div>` : ''}
         ${(notes || []).map(n => `<div class="alert alert-bad">${esc(n)}</div>`).join('')}
         ${state.detected ? renderDetected(conns) : ''}
         <div class="conn-list">
@@ -428,7 +439,7 @@ function renderForm() {
                 }
                 if (fd.type === 'ssh-select') {
                     const ssh = (state.settings?.config?.connections || []).filter(x => x.type === 'ssh');
-                    return `<label>${esc(fd.label)}<select name="${esc(fd.key)}"><option value="">Local Docker</option>${ssh.map(x => `<option value="${esc(x.id)}" ${c[fd.key] === x.id ? 'selected' : ''}>${esc(x.name)} · ${esc(x.user || '')}@${esc(x.addr || '')}</option>`).join('')}</select>
+                    return `<label>${esc(fd.label)}<select name="${esc(fd.key)}"><option value="">Directly from this computer</option>${ssh.map(x => `<option value="${esc(x.id)}" ${c[fd.key] === x.id ? 'selected' : ''}>${esc(x.name)} · ${esc(x.user || '')}@${esc(x.addr || '')}</option>`).join('')}</select>
                         ${fd.help ? `<span class="muted small">${esc(fd.help)}</span>` : ''}</label>`;
                 }
                 return `<label>${esc(fd.label)}${fd.required ? ' *' : ''}
@@ -436,6 +447,7 @@ function renderForm() {
                     ${fd.help ? `<span class="muted small">${esc(fd.help)}</span>` : ''}</label>`;
             }).join('')}
             <label class="check"><input type="checkbox" name="enabled" ${c.enabled ? 'checked' : ''}> Enabled</label>
+            ${f.type === 'ssh' ? renderHostKeyBox() : ''}
             <div id="form-test" class="form-test"></div>
             ${f.error ? `<div class="alert alert-bad">${esc(f.error)}</div>` : ''}
             <div class="modal-actions">
@@ -443,6 +455,35 @@ function renderForm() {
                 <button type="submit" class="btn">${f.editing ? 'Save changes' : 'Add connection'}</button>
             </div>
         </form></div></div>`;
+}
+
+// The host-key panel on the SSH form. Its contents are drawn into #hostkey-out
+// by the handlers below, so checking a host never re-renders (and never
+// clears) the rest of the form.
+function renderHostKeyBox() {
+    return `<div class="hostkey-box">
+        <div class="hostkey-head"><strong>Host key</strong>
+            <button type="button" class="btn btn-small btn-secondary" id="hostkey-check">Check host key</button></div>
+        <p class="muted small" style="margin:6px 0 0">Reads the server's key without logging in. If the server is new to this computer you can compare its fingerprint and trust it, instead of editing known_hosts by hand.</p>
+        <div id="hostkey-out"></div>
+    </div>`;
+}
+
+// drawHostKey shows the result of a host-key check in the panel.
+function drawHostKey(out, info) {
+    const fp = `<div class="hostkey-fp"><span class="muted small">${esc(info.keyType)} · SHA256 fingerprint</span><code>${esc(info.fingerprint)}</code></div>`;
+    if (info.status === 'trusted') {
+        out.innerHTML = `<div class="alert alert-ok"><span class="alert-text">Trusted. This server's key is already in <code>${esc(info.knownHostsPath)}</code>.</span></div>${fp}`;
+    } else if (info.status === 'changed') {
+        out.innerHTML = `<div class="alert alert-bad"><span class="alert-text"><strong>The host key has changed.</strong> known_hosts has a different key for this server
+            (${(info.known || []).map(k => `<code>${esc(k)}</code>`).join(', ')}). This can mean the server was reinstalled, or that someone is intercepting the connection.
+            PhantomOps will not connect and will not replace the old key. Verify the new fingerprint with the server's owner, then remove the old line from
+            <code>${esc(info.knownHostsPath)}</code> yourself.</span></div>${fp}`;
+    } else {
+        out.innerHTML = `<div class="alert"><span class="alert-text">This server is not in <code>${esc(info.knownHostsPath)}</code> yet. Compare this fingerprint with one you got from a trusted source
+            (for example by running <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code> on the server) before trusting it.</span></div>${fp}
+            <div class="toolbar-actions"><button type="button" class="btn btn-small" id="hostkey-trust" data-fp="${esc(info.fingerprint)}">Trust this key</button></div>`;
+    }
 }
 
 // ---------- behaviour ----------
@@ -467,7 +508,7 @@ function readForm() {
 
 function blankConn(type) {
     const t = TYPES[type];
-    return {id: '', type, name: t.label, enabled: true, socket: '', sshConnection: '', remoteSocket: '', context: '', kubeconfig: '', url: '', query: '', token: '',
+    return {id: '', type, name: t.label, enabled: true, socket: '', sshConnection: '', remoteSocket: '', remoteKubeconfig: '', context: '', kubeconfig: '', url: '', query: '', token: '',
         addr: '', user: '', keyPath: '', knownHosts: '', insecure: false, expectedPorts: []};
 }
 
@@ -493,7 +534,6 @@ function bind() {
         render();
     });
     $('#close-detected')?.addEventListener('click', () => { state.detected = null; render(); });
-    $('#save-defaults')?.addEventListener('click', () => persist(cloneConfig(), 'Connections saved'));
 
     root.querySelectorAll('[data-add-detected]').forEach(b => b.addEventListener('click', () => {
         const fresh = state.detected.filter(d => !state.settings.config.connections.some(e => sameTarget(e, d)));
@@ -639,6 +679,25 @@ function bind() {
         state.form = {type: b.dataset.type, conn: blankConn(b.dataset.type), editing: false, error: ''};
         render();
     }));
+    $('#hostkey-check')?.addEventListener('click', async e => {
+        const out = $('#hostkey-out');
+        e.target.disabled = true; e.target.textContent = 'Checking…';
+        out.innerHTML = '';
+        try { drawHostKey(out, await InspectSSHHostKey(readForm())); }
+        catch (err) { out.innerHTML = `<div class="alert alert-bad">${esc(String(err).replace(/^Error: /, ''))}</div>`; }
+        e.target.disabled = false; e.target.textContent = 'Check host key';
+    });
+    // Event delegation: the Trust button only exists after a check.
+    $('#hostkey-out')?.addEventListener('click', async e => {
+        const btn = e.target.closest('#hostkey-trust');
+        if (!btn) return;
+        const out = $('#hostkey-out');
+        btn.disabled = true; btn.textContent = 'Saving…';
+        try { drawHostKey(out, await TrustSSHHostKey(readForm(), btn.dataset.fp)); }
+        catch (err) {
+            out.innerHTML = `<div class="alert alert-bad">${esc(String(err).replace(/^Error: /, ''))}</div>`;
+        }
+    });
     $('#form-test-btn')?.addEventListener('click', async e => {
         const out = $('#form-test');
         e.target.disabled = true; e.target.textContent = 'Testing…';

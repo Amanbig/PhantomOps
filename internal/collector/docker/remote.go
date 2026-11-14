@@ -16,7 +16,7 @@ import (
 // commandRunner is implemented by the verified SSH command runner. Docker
 // commands below are built from fixed subcommands and shell-quoted IDs.
 type commandRunner interface {
-	Run(context.Context, string) (string, int, error)
+	Run(ctx context.Context, command string) (stdout, stderr string, code int, err error)
 }
 
 type remoteAPI struct {
@@ -31,7 +31,7 @@ func newRemoteAPIClient(r commandRunner, socket string) *apiClient {
 // NewRemote creates a read-only Docker collector that runs the Docker CLI on
 // the host reached through the supplied, host-key-verified SSH config.
 func NewRemote(sshCfg ssh.Config, socket string) (*Collector, error) {
-	r, err := ssh.NewCommandRunner(sshCfg)
+	r, err := ssh.Shared(sshCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -79,12 +79,12 @@ func (r *remoteAPI) get(ctx context.Context, path string, q url.Values) ([]byte,
 	default:
 		return nil, fmt.Errorf("unsupported remote Docker API path %q", path)
 	}
-	out, code, err := r.runner.Run(ctx, joinShellArgs(args))
+	out, errOut, code, err := r.runner.Run(ctx, joinShellArgs(args))
 	if err != nil {
 		return nil, fmt.Errorf("remote Docker command failed: %w", err)
 	}
 	if code != 0 {
-		return nil, fmt.Errorf("remote Docker command exited %d: %s", code, shortRemote(out))
+		return nil, fmt.Errorf("remote Docker command exited %d: %s", code, explainRemoteDocker(code, errOut, out))
 	}
 	if path == "/containers/json" {
 		return normalizeRemoteList(out)
@@ -101,6 +101,24 @@ func joinShellArgs(args []string) string {
 		quoted[i] = "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
 	}
 	return strings.Join(quoted, " ")
+}
+
+// explainRemoteDocker turns the common remote failures into advice.
+func explainRemoteDocker(code int, stderr, stdout string) string {
+	msg := shortRemote(stderr)
+	if msg == "" {
+		msg = shortRemote(stdout)
+	}
+	l := strings.ToLower(msg)
+	switch {
+	case code == 127 || strings.Contains(l, "docker: command not found") || strings.Contains(l, "docker: not found"):
+		return "the docker command was not found on the remote host (is Docker installed, and on the SSH user's PATH?)"
+	case strings.Contains(l, "permission denied") && strings.Contains(l, "docker.sock"):
+		return "the SSH user may not use Docker on the remote host. Add it to the docker group (sudo usermod -aG docker <user>), then log in again. PhantomOps does not use sudo. Details: " + msg
+	case strings.Contains(l, "cannot connect to the docker daemon"):
+		return "Docker is not running on the remote host, or the remote socket path is wrong. Details: " + msg
+	}
+	return msg
 }
 
 func shortRemote(s string) string {

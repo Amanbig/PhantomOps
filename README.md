@@ -25,10 +25,29 @@ Open the **Connections** tab to add Docker/Podman, Kubernetes (k3s), Prometheus,
 Each connection can be tested before saving, enabled/disabled, edited or deleted, and **Detect local
 services** finds the ones running on your machine.
 
-For Docker on another Linux host, add and save its SSH connection first, then add Docker and select
-**Run through SSH connection**. PhantomOps runs a fixed, read-only Docker CLI allowlist through the
-verified SSH host key. It does not enable Docker mutations or accept arbitrary remote commands. Until you save, Docker and Kubernetes (`kubectl`) are
-auto-detected so the app works out of the box.
+For services on another Linux host, add and save its SSH connection first, then add the service and select
+**Run through SSH connection**. Everything goes over the verified SSH host key, is read-only, and shares one
+SSH connection per server:
+
+- **Docker and Kubernetes** run a fixed allowlist of `docker` / `kubectl` commands on that host (never
+  arbitrary commands). The remote user needs `docker` or `kubectl` on its `PATH` (non-interactive SSH does
+  not read `~/.bashrc`), permission to use Docker, and for Kubernetes a readable kubeconfig (set **Remote
+  kubeconfig file** if it is not `~/.kube/config`).
+- **Nomad, Prometheus and Loki** are reached through a read-only tunnel (only `GET` and `HEAD`). The URL is
+  the address *as seen from that server*, for example `http://127.0.0.1:4646`. Nothing opens on your
+  computer. This needs port forwarding allowed on the SSH server (`AllowTcpForwarding`, on by default),
+  and the URL can name anything that server can reach, so use a URL you trust.
+
+This is monitoring only: rollbacks are never performed through SSH, and a connection that is set to use SSH
+never falls back to connecting directly.
+
+**Trusting a new server.** SSH connections verify the server against `known_hosts` and refuse unknown hosts.
+In the SSH connection form, **Check host key** reads the server's key without logging in (no credential is
+sent) and shows its fingerprint. Compare it with one you got from a trusted source, for example
+`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the server, then choose **Trust this key** to add it to
+`known_hosts` (the action is written to the audit log). A key that *changed* is never replaced by the app: it
+shows a warning, because it can mean the connection is being intercepted. Nothing is connected by default: a fresh install
+reads no Docker socket or cluster until you add a connection or run **Detect local services** and add what it finds.
 
 Settings are stored in `$PHANTOM_CONFIG` or `<user config dir>/phantomops/config.json`
 (`~/.config/phantomops/config.json` on Linux) with owner-only permissions, since it may hold tokens.
@@ -39,7 +58,15 @@ You can also edit it by hand; see `dev/config.example.json`.
 Optional. In **Settings → Chat & webhooks** add a Slack, Discord or generic JSON webhook. While background
 monitoring runs, new, escalated, returning and resolved incidents are posted there (muted and snoozed ones are
 not). Messages only contain the title, severity and root-cause summary. The webhook URL is stored in the
-owner-only config file and masked in the UI.
+owner-only config file and masked in the UI. **Activity → Webhook deliveries** lists the most recent messages
+and whether each arrived (including the ones skipped after a failure); it is kept in memory and holds no URLs.
+
+## Incident reports
+
+On **Incidents** (live) and **History**, **Save report…** writes a Markdown postmortem of an incident and
+**Copy report** puts it on the clipboard: summary, root cause and confidence, evidence, a UTC timeline, and any
+rollback actions taken. Log excerpts are left out and common secrets (keys, tokens, passwords, webhook URLs)
+are removed, on a best-effort basis, so read a report before you share it.
 
 ## Try it without the GUI
 

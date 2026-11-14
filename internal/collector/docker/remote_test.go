@@ -11,22 +11,22 @@ type fakeRemote struct {
 	commands []string
 }
 
-func (f *fakeRemote) Run(_ context.Context, command string) (string, int, error) {
+func (f *fakeRemote) Run(_ context.Context, command string) (string, string, int, error) {
 	f.commands = append(f.commands, command)
 	switch {
 	case strings.Contains(command, "'info'"):
-		return `{"ServerVersion":"27.3.1","OperatingSystem":"Ubuntu","KernelVersion":"6.8","NCPU":4,"MemTotal":8589934592,"Images":7}`, 0, nil
+		return `{"ServerVersion":"27.3.1","OperatingSystem":"Ubuntu","KernelVersion":"6.8","NCPU":4,"MemTotal":8589934592,"Images":7}`, "", 0, nil
 	case strings.Contains(command, "'ps'"):
 		return `{"ID":"abc123","Names":"api,api-old","Image":"demo/api:v2","State":"running","Status":"Up 2 hours","Labels":"com.docker.compose.project=demo"}
-`, 0, nil
+`, "", 0, nil
 	case strings.Contains(command, "'inspect'"):
-		return `{"Id":"abc123","Name":"/api","RestartCount":2,"State":{"Status":"running","Running":true,"OOMKilled":false,"ExitCode":0,"StartedAt":"2026-03-01T10:00:00Z","FinishedAt":"0001-01-01T00:00:00Z","Health":{"Status":"healthy"}},"Config":{"Image":"demo/api:v2","Tty":false}}`, 0, nil
+		return `{"Id":"abc123","Name":"/api","RestartCount":2,"State":{"Status":"running","Running":true,"OOMKilled":false,"ExitCode":0,"StartedAt":"2026-03-01T10:00:00Z","FinishedAt":"0001-01-01T00:00:00Z","Health":{"Status":"healthy"}},"Config":{"Image":"demo/api:v2","Tty":false}}`, "", 0, nil
 	case strings.Contains(command, "'stats'"):
-		return `{"CPUPerc":"12.5%","MemUsage":"128MiB / 512MiB"}`, 0, nil
+		return `{"CPUPerc":"12.5%","MemUsage":"128MiB / 512MiB"}`, "", 0, nil
 	case strings.Contains(command, "'logs'"):
-		return "ERROR database refused\n", 0, nil
+		return "ERROR database refused\n", "", 0, nil
 	default:
-		return "unexpected", 1, nil
+		return "unexpected", "", 1, nil
 	}
 }
 

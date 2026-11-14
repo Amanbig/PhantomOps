@@ -20,4 +20,4 @@ A main agent can delegate to a specialist when the task matches its description.
 - `security-reviewer`: read-only review
 - `release-manager`: release preparation and announcement workflow
 
-Specialists do not replace human approval for commits, pushes, tags, releases, Discussions or infrastructure changes.
+Specialists commit verified work on the release branch without asking. They still need your approval to push, open a PR, merge, tag, publish, post a Discussion or change infrastructure.

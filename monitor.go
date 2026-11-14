@@ -250,13 +250,18 @@ func (a *App) sendWebhooks(changes []history.Change, channels []notify.Channel) 
 				if n.id == "summary" {
 					m.IncidentID = ""
 				}
+				if failure != nil {
+					// The endpoint is down or rejecting: do not hammer it, but
+					// record what was not sent so nothing disappears silently.
+					a.hookLog.Add(notify.SkippedDelivery(ch, m, "not sent: an earlier message to this channel failed in the same scan"))
+					continue
+				}
 				ctx, cancel := context.WithTimeout(a.context(), notify.Timeout)
+				start := time.Now()
 				err := a.hooks.Send(ctx, ch, m)
 				cancel()
-				if err != nil {
-					failure = err
-					break // endpoint is down or rejecting; do not hammer it
-				}
+				a.hookLog.Add(notify.NewDelivery(ch, m, err, time.Since(start)))
+				failure = err
 			}
 			a.recordWebhook(ch.ID, failure)
 		}(ch, notes)
@@ -288,8 +293,11 @@ func (a *App) SendTestWebhook(ch notify.Channel) error {
 	ch = cfg.Webhooks[0]
 	ctx, cancel := context.WithTimeout(a.context(), notify.Timeout)
 	defer cancel()
-	err := a.hooks.Send(ctx, ch, notify.Message{Kind: "test", Title: "👻 PhantomOps webhook works",
-		RootCause: "This is a test message. Real incident updates will look like this.", At: time.Now().UTC()})
+	m := notify.Message{Kind: "test", Title: "👻 PhantomOps webhook works",
+		RootCause: "This is a test message. Real incident updates will look like this.", At: time.Now().UTC()}
+	start := time.Now()
+	err := a.hooks.Send(ctx, ch, m)
+	a.hookLog.Add(notify.NewDelivery(ch, m, err, time.Since(start)))
 	if id != "" {
 		a.recordWebhook(id, err)
 	}
@@ -368,4 +376,14 @@ func (a *App) webhookStatuses() []WebhookStatus {
 		}
 	}
 	return out
+}
+
+// WebhookDeliveries returns the most recent webhook deliveries, newest first:
+// what was sent, to which channel, and whether it worked. It holds no webhook
+// URLs and starts empty each time the app starts.
+func (a *App) WebhookDeliveries(limit int) []notify.Delivery {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	return a.hookLog.Recent(limit)
 }

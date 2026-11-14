@@ -6,6 +6,7 @@ import {config} from '../models';
 import {history} from '../models';
 import {model} from '../models';
 import {main} from '../models';
+import {ssh} from '../models';
 import {engine} from '../models';
 import {notify} from '../models';
 
@@ -37,6 +38,8 @@ export function GetUpdateProgress():Promise<updater.Progress>;
 
 export function IncidentReport(arg1:string):Promise<string>;
 
+export function InspectSSHHostKey(arg1:config.Connection):Promise<ssh.HostKeyInfo>;
+
 export function InstallUpdate(arg1:string):Promise<void>;
 
 export function LastResult():Promise<engine.Result>;
@@ -67,8 +70,12 @@ export function TestAI(arg1:config.AIConfig):Promise<main.AITestResult>;
 
 export function TestConnection(arg1:config.Connection):Promise<main.TestResult>;
 
+export function TrustSSHHostKey(arg1:config.Connection,arg2:string):Promise<ssh.HostKeyInfo>;
+
 export function UnacknowledgeIncident(arg1:string):Promise<void>;
 
 export function UnmuteIncident(arg1:string):Promise<void>;
 
 export function UnsnoozeIncident(arg1:string):Promise<void>;
+
+export function WebhookDeliveries(arg1:number):Promise<Array<notify.Delivery>>;

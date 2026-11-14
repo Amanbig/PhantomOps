@@ -24,10 +24,20 @@ type Collector struct {
 
 // New creates a collector for the Nomad API at baseURL. token may be empty
 // when ACLs are disabled.
-func New(baseURL, token string) *Collector {
+func New(baseURL, token string) *Collector { return NewVia(baseURL, token, nil) }
+
+// NewVia is New with a custom transport, used to reach Nomad through an SSH
+// tunnel. A nil transport means a direct connection.
+func NewVia(baseURL, token string, rt http.RoundTripper) *Collector {
 	hc := httpx.NewClient()
+	next := http.DefaultTransport
+	if rt != nil {
+		next = rt
+	}
 	if token != "" {
-		hc.Transport = tokenTransport{token: token, next: http.DefaultTransport}
+		hc.Transport = tokenTransport{token: token, next: next}
+	} else if rt != nil {
+		hc.Transport = rt
 	}
 	return &Collector{base: baseURL, http: hc, now: func() time.Time { return time.Now().UTC() }}
 }

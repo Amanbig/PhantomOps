@@ -58,6 +58,10 @@ export function IncidentReport(arg1) {
   return window['go']['main']['App']['IncidentReport'](arg1);
 }
 
+export function InspectSSHHostKey(arg1) {
+  return window['go']['main']['App']['InspectSSHHostKey'](arg1);
+}
+
 export function InstallUpdate(arg1) {
   return window['go']['main']['App']['InstallUpdate'](arg1);
 }
@@ -118,6 +122,10 @@ export function TestConnection(arg1) {
   return window['go']['main']['App']['TestConnection'](arg1);
 }
 
+export function TrustSSHHostKey(arg1, arg2) {
+  return window['go']['main']['App']['TrustSSHHostKey'](arg1, arg2);
+}
+
 export function UnacknowledgeIncident(arg1) {
   return window['go']['main']['App']['UnacknowledgeIncident'](arg1);
 }
@@ -128,4 +136,8 @@ export function UnmuteIncident(arg1) {
 
 export function UnsnoozeIncident(arg1) {
   return window['go']['main']['App']['UnsnoozeIncident'](arg1);
+}
+
+export function WebhookDeliveries(arg1) {
+  return window['go']['main']['App']['WebhookDeliveries'](arg1);
 }

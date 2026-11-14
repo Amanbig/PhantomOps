@@ -49,8 +49,8 @@ type AITestResult struct {
 type Settings struct {
 	Config config.Config `json:"config"` // secrets are masked
 	Path   string        `json:"path"`
-	// Saved is false when the config file does not exist yet and the
-	// connections shown are auto-detected defaults.
+	// Saved is false when the config file does not exist yet (nothing is
+	// connected until the user adds it).
 	Saved bool     `json:"saved"`
 	Notes []string `json:"notes"`
 }
@@ -93,6 +93,7 @@ type App struct {
 	notifyErr   string
 	hooks       *notify.Sender
 	hookStatus  map[string]WebhookStatus // last delivery result per webhook ID
+	hookLog     *notify.Log              // recent webhook deliveries (memory only)
 
 	updater       *updater.Updater
 	pendingUpdate *updater.Info
@@ -115,6 +116,7 @@ func NewApp() *App {
 		approvals:   remediate.NewApprovals(),
 		monitorWake: make(chan struct{}, 1),
 		hooks:       notify.NewSender(),
+		hookLog:     notify.NewLog(200),
 		audit:       remediate.NewAuditLog(filepath.Join(filepath.Dir(config.Path()), "audit.log")),
 	}
 }
@@ -370,6 +372,11 @@ func (a *App) executorFor(inv model.Investigation) (remediate.Executor, error) {
 	conn, ok := a.cfg.FindConnection(inv.TargetConnection)
 	if !ok {
 		return nil, fmt.Errorf("connection %q is not available or is disabled", inv.TargetConnection)
+	}
+	// Rollbacks run kubectl locally. A connection that reads a cluster through
+	// SSH would point them at the wrong cluster, so it is refused outright.
+	if conn.SSHConnection != "" {
+		return nil, fmt.Errorf("connection %q reads through SSH, which is monitoring only: PhantomOps will not perform a rollback on it. Roll back from that host yourself, or connect the cluster directly", conn.Name)
 	}
 	switch {
 	case conn.Type == config.TypeKubernetes && inv.TargetSource == "kubernetes":
