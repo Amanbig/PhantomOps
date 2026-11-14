@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Confirm every git push",
+      "trigger": "PreToolUse",
+      "matcher": "execute_bash",
+      "action": {
+        "type": "command",
+        "command": "python3 -c \"import json,sys,re;c=json.load(sys.stdin).get('tool_input',{}).get('command','');hit=re.search(r'\\\\bgit\\\\s+(?:-C\\\\s+\\\\S+\\\\s+)?push\\\\b',c);tag=re.search(r'(?<![\\\\w/.-])v\\\\d+\\\\.\\\\d+\\\\.\\\\d+\\\\b|--tags|(?<![\\\\w/.-])(?:main|master)\\\\b',c);msg='This push targets main or a release tag (tags publish a release). Confirm.' if tag else 'Pushing sends commits to GitHub. Confirm.';print(json.dumps({'hookSpecificOutput':{'permissionDecision':'ask','permissionDecisionReason':msg}})) if hit else None\""
+      }
+    }
+  ]
+}

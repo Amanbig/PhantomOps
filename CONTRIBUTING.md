@@ -26,7 +26,7 @@ go test ./internal/...
 The frontend is plain JavaScript + Vite on purpose. Please do not add React, Tailwind or other frameworks.
 
 ## Pull requests
-- One feature or fix per branch (`feat/…`, `fix/…`, `chore/…`). Do not push to `main`.
+- External contributors: one feature or fix per branch (`feat/…`, `fix/…`, `chore/…`) and one PR each. Do not push to `main`. (The maintainer batches their own work into one branch and PR per release.)
 - Fill in the PR template, including what you did **not** verify.
 - Checks run on PRs only. Releases are built from version tags by maintainers.
 
