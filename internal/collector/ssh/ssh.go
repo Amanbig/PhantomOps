@@ -183,26 +183,54 @@ func connect(ctx context.Context, cfg Config) (*sshLink, error) {
 	if err != nil {
 		return nil, err
 	}
-	hostKey, err := hostKeyCallback(cfg)
+	var (
+		cb    gossh.HostKeyCallback
+		v     *hostVerifier
+		algos []string
+	)
+	if cfg.Insecure {
+		cb = gossh.InsecureIgnoreHostKey() //nolint:gosec // explicit opt-in
+	} else {
+		check, err := knownHostsCheck(cfg)
+		if err != nil {
+			closeAuth()
+			return nil, err
+		}
+		v = &hostVerifier{check: check, addr: cfg.Addr}
+		cb, algos = v.callback, preferredHostKeyAlgos()
+	}
+	client, err := dialClient(ctx, cfg, auth, cb, algos)
+	if err != nil && v != nil {
+		if retry := v.retryAlgos(); retry != nil {
+			// The server showed a key type known_hosts has no entry for, but
+			// it does have one of another type: ask for that type.
+			client, err = dialClient(ctx, cfg, auth, cb, retry)
+			err = v.explainNoCommonKey(err)
+		}
+	}
 	if err != nil {
 		closeAuth()
 		return nil, err
 	}
-	cc := &gossh.ClientConfig{User: cfg.User, Auth: auth, HostKeyCallback: hostKey, Timeout: 10 * time.Second}
+	return &sshLink{client: client, closeAuth: closeAuth}, nil
+}
 
+// dialClient opens one SSH connection offering the given host key algorithms
+// (nil means the library default).
+func dialClient(ctx context.Context, cfg Config, auth []gossh.AuthMethod, hostKey gossh.HostKeyCallback, algos []string) (*gossh.Client, error) {
+	cc := &gossh.ClientConfig{User: cfg.User, Auth: auth, HostKeyCallback: hostKey,
+		HostKeyAlgorithms: algos, Timeout: 10 * time.Second}
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", cfg.Addr)
 	if err != nil {
-		closeAuth()
 		return nil, err
 	}
 	sc, chans, reqs, err := gossh.NewClientConn(conn, cfg.Addr, cc)
 	if err != nil {
 		conn.Close()
-		closeAuth()
 		return nil, err
 	}
-	return &sshLink{client: gossh.NewClient(sc, chans, reqs), closeAuth: closeAuth}, nil
+	return gossh.NewClient(sc, chans, reqs), nil
 }
 
 func (l *sshLink) close() { l.client.Close(); l.closeAuth() }
@@ -303,22 +331,11 @@ func authMethods(cfg Config) ([]gossh.AuthMethod, func(), error) {
 	return []gossh.AuthMethod{gossh.PublicKeysCallback(agent.NewClient(conn).Signers)}, func() { conn.Close() }, nil
 }
 
-func hostKeyCallback(cfg Config) (gossh.HostKeyCallback, error) {
-	if cfg.Insecure {
-		return gossh.InsecureIgnoreHostKey(), nil //nolint:gosec // explicit opt-in
-	}
+// knownHostsCheck loads the known_hosts verifier for cfg.
+func knownHostsCheck(cfg Config) (gossh.HostKeyCallback, error) {
 	path, err := knownHostsPath(cfg)
 	if err != nil {
 		return nil, err
 	}
-	verify, err := loadKnownHosts(path)
-	if err != nil {
-		return nil, err
-	}
-	return func(hostname string, remote net.Addr, key gossh.PublicKey) error {
-		if err := verify(hostname, remote, key); err != nil {
-			return describeKeyError(cfg.Addr, key, err)
-		}
-		return nil
-	}, nil
+	return loadKnownHosts(path)
 }

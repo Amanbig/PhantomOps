@@ -96,6 +96,10 @@ var errKeyCaptured = errors.New("host key captured")
 // known_hosts. It never authenticates: the handshake is aborted as soon as
 // the key arrives, so no credential is sent to a server that has not been
 // verified.
+//
+// If known_hosts has keys for this server but the server showed a key of a
+// different type, it asks once more for a type known_hosts has, so that a
+// different key TYPE is not reported as a changed key (see algos.go).
 func probe(ctx context.Context, cfg Config) (gossh.PublicKey, HostKeyInfo, error) {
 	path, err := knownHostsPath(cfg)
 	if err != nil {
@@ -105,12 +109,32 @@ func probe(ctx context.Context, cfg Config) (gossh.PublicKey, HostKeyInfo, error
 	if err != nil {
 		return nil, HostKeyInfo{}, err
 	}
+	key, info, want, err := probeOnce(ctx, cfg, path, verify, preferredHostKeyAlgos())
+	if err != nil {
+		return nil, HostKeyInfo{}, err
+	}
+	if info.Status == HostKeyChanged && !hasType(want, key) {
+		v := &hostVerifier{want: want, offered: key, addr: cfg.Addr}
+		if retry := v.retryAlgos(); retry != nil {
+			key, info, want, err = probeOnce(ctx, cfg, path, verify, retry)
+			if err != nil {
+				return nil, HostKeyInfo{}, v.explainNoCommonKey(err)
+			}
+		}
+	}
+	return key, info, nil
+}
 
+// probeOnce is one handshake offering algos. want is what known_hosts holds
+// for the server when it has keys of other types.
+func probeOnce(ctx context.Context, cfg Config, path string, verify gossh.HostKeyCallback, algos []string) (gossh.PublicKey, HostKeyInfo, []knownhosts.KnownKey, error) {
 	var key gossh.PublicKey
+	var want []knownhosts.KnownKey
 	info := HostKeyInfo{Addr: cfg.Addr, KnownHostsPath: path}
 	cc := &gossh.ClientConfig{
-		User:    cfg.User,
-		Timeout: 10 * time.Second,
+		User:              cfg.User,
+		Timeout:           10 * time.Second,
+		HostKeyAlgorithms: algos,
 		HostKeyCallback: func(hostname string, remote net.Addr, k gossh.PublicKey) error {
 			key = k
 			info.KeyType, info.Fingerprint = k.Type(), gossh.FingerprintSHA256(k)
@@ -125,6 +149,7 @@ func probe(ctx context.Context, cfg Config) (gossh.PublicKey, HostKeyInfo, error
 				info.Status = HostKeyUnknown
 			default:
 				info.Status = HostKeyChanged
+				want = ke.Want
 				for _, w := range ke.Want {
 					info.Known = append(info.Known, gossh.FingerprintSHA256(w.Key))
 				}
@@ -136,7 +161,7 @@ func probe(ctx context.Context, cfg Config) (gossh.PublicKey, HostKeyInfo, error
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", cfg.Addr)
 	if err != nil {
-		return nil, HostKeyInfo{}, err
+		return nil, HostKeyInfo{}, nil, err
 	}
 	defer conn.Close()
 	done := make(chan struct{})
@@ -149,16 +174,20 @@ func probe(ctx context.Context, cfg Config) (gossh.PublicKey, HostKeyInfo, error
 		}
 	}()
 	// The callback always aborts, so this only ever returns an error.
-	if c, _, _, err := gossh.NewClientConn(conn, cfg.Addr, cc); err == nil {
+	c, _, _, herr := gossh.NewClientConn(conn, cfg.Addr, cc)
+	if herr == nil {
 		c.Close()
 	}
 	if key == nil || info.Status == "" {
 		if err := ctx.Err(); err != nil {
-			return nil, HostKeyInfo{}, err
+			return nil, HostKeyInfo{}, nil, err
 		}
-		return nil, HostKeyInfo{}, fmt.Errorf("could not read the host key of %s (is that an SSH server?)", cfg.Addr)
+		if herr != nil {
+			return nil, HostKeyInfo{}, nil, fmt.Errorf("could not read the host key of %s (is that an SSH server?): %w", cfg.Addr, herr)
+		}
+		return nil, HostKeyInfo{}, nil, fmt.Errorf("could not read the host key of %s (is that an SSH server?)", cfg.Addr)
 	}
-	return key, info, nil
+	return key, info, want, nil
 }
 
 // InspectHostKey reports the server's host key and whether known_hosts
