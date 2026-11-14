@@ -396,3 +396,13 @@ select option { background-color: var(--panel); color: var(--text); }
 
 /* Incident report actions */
 .hist-report { margin-top: 12px; align-items: center; }
+
+/* SSH host key panel */
+.hostkey-box { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin: 12px 0; background: var(--panel-2); }
+.hostkey-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hostkey-box .alert { margin: 10px 0 0; }
+.hostkey-box .toolbar-actions { margin-top: 10px; }
+.hostkey-fp { margin-top: 10px; display: grid; gap: 4px; }
+.hostkey-fp code { word-break: break-all; user-select: all; }
+.alert-text { display: block; min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.alert-text code { font-size: 13px; }

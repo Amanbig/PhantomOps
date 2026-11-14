@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -191,5 +192,52 @@ func TestNomadRollbackIsRefusedThroughSSH(t *testing.T) {
 	}
 	if ex, err := a.executorFor(inv("local-nomad")); err != nil || ex == nil {
 		t.Errorf("a direct Nomad connection must still be allowed: %v", err)
+	}
+}
+
+func TestTrustingAHostKeyIsAuditedAndRejectsNonSSHConnections(t *testing.T) {
+	a := newTestApp(t)
+	a.audit = remediate.NewAuditLog(filepath.Join(t.TempDir(), "audit.log"))
+
+	if _, err := a.InspectSSHHostKey(config.Connection{Type: config.TypeDocker, Name: "d"}); err == nil {
+		t.Error("only SSH connections have host keys")
+	}
+	if _, err := a.TrustSSHHostKey(config.Connection{Type: config.TypeDocker, Name: "d"}, "SHA256:x"); err == nil {
+		t.Error("only SSH connections have host keys")
+	}
+	entries, _ := a.audit.Recent(10)
+	if len(entries) != 0 {
+		t.Errorf("a rejected request must not be audited: %v", entries)
+	}
+
+	// An SSH connection to a port where nothing listens: the attempt fails,
+	// and both the intent and the failed result are on record.
+	conn := config.Connection{Type: config.TypeSSH, Name: "edge", Addr: "127.0.0.1:1", User: "ops", KnownHosts: filepath.Join(t.TempDir(), "kh")}
+	if _, err := a.TrustSSHHostKey(conn, "SHA256:abc"); err == nil {
+		t.Fatal("trusting an unreachable host must fail")
+	}
+	entries, _ = a.audit.Recent(10)
+	if len(entries) != 2 || entries[1].Phase != "approved" || entries[0].Phase != "result" || entries[0].OK ||
+		entries[0].Action != "trust-host-key" || entries[0].Target != "127.0.0.1:1" {
+		t.Errorf("audit trail = %+v, want an approved entry then a failed result", entries)
+	}
+}
+
+func TestTrustingAHostKeyIsRefusedWhenTheAuditLogCannotBeWritten(t *testing.T) {
+	a := newTestApp(t)
+	dir := t.TempDir()
+	broken := filepath.Join(dir, "audit.log")
+	if err := os.Mkdir(broken, 0o700); err != nil { // a folder where the file should be
+		t.Fatal(err)
+	}
+	a.audit = remediate.NewAuditLog(broken)
+	khPath := filepath.Join(dir, "kh")
+	conn := config.Connection{Type: config.TypeSSH, Name: "edge", Addr: "127.0.0.1:1", User: "ops", KnownHosts: khPath}
+	_, err := a.TrustSSHHostKey(conn, "SHA256:abc")
+	if err == nil || !strings.Contains(err.Error(), "audit log") {
+		t.Errorf("err = %v, want a refusal because the action cannot be recorded", err)
+	}
+	if _, serr := os.Stat(khPath); !os.IsNotExist(serr) {
+		t.Error("known_hosts was touched although the intent could not be recorded")
 	}
 }

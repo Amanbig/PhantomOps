@@ -781,6 +781,33 @@ export namespace remediate {
 
 }
 
+export namespace ssh {
+	
+	export class HostKeyInfo {
+	    addr: string;
+	    keyType: string;
+	    fingerprint: string;
+	    status: string;
+	    knownHostsPath: string;
+	    known: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new HostKeyInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.addr = source["addr"];
+	        this.keyType = source["keyType"];
+	        this.fingerprint = source["fingerprint"];
+	        this.status = source["status"];
+	        this.knownHostsPath = source["knownHostsPath"];
+	        this.known = source["known"];
+	    }
+	}
+
+}
+
 export namespace updater {
 	
 	export class Asset {

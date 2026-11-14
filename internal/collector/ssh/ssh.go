@@ -13,12 +13,10 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"time"
 
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
-	"golang.org/x/crypto/ssh/knownhosts"
 
 	"PhantomOps/internal/model"
 )
@@ -309,17 +307,18 @@ func hostKeyCallback(cfg Config) (gossh.HostKeyCallback, error) {
 	if cfg.Insecure {
 		return gossh.InsecureIgnoreHostKey(), nil //nolint:gosec // explicit opt-in
 	}
-	path := cfg.KnownHosts
-	if path == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, err
-		}
-		path = filepath.Join(home, ".ssh", "known_hosts")
-	}
-	cb, err := knownhosts.New(path)
+	path, err := knownHostsPath(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("known_hosts %s: %w (add the host with ssh-keyscan, or enable insecure mode for testing)", path, err)
+		return nil, err
 	}
-	return cb, nil
+	verify, err := loadKnownHosts(path)
+	if err != nil {
+		return nil, err
+	}
+	return func(hostname string, remote net.Addr, key gossh.PublicKey) error {
+		if err := verify(hostname, remote, key); err != nil {
+			return describeKeyError(cfg.Addr, key, err)
+		}
+		return nil
+	}, nil
 }

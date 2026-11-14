@@ -39,7 +39,14 @@ SSH connection per server:
   and the URL can name anything that server can reach, so use a URL you trust.
 
 This is monitoring only: rollbacks are never performed through SSH, and a connection that is set to use SSH
-never falls back to connecting directly. Nothing is connected by default: a fresh install
+never falls back to connecting directly.
+
+**Trusting a new server.** SSH connections verify the server against `known_hosts` and refuse unknown hosts.
+In the SSH connection form, **Check host key** reads the server's key without logging in (no credential is
+sent) and shows its fingerprint. Compare it with one you got from a trusted source, for example
+`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the server, then choose **Trust this key** to add it to
+`known_hosts` (the action is written to the audit log). A key that *changed* is never replaced by the app: it
+shows a warning, because it can mean the connection is being intercepted. Nothing is connected by default: a fresh install
 reads no Docker socket or cluster until you add a connection or run **Detect local services** and add what it finds.
 
 Settings are stored in `$PHANTOM_CONFIG` or `<user config dir>/phantomops/config.json`

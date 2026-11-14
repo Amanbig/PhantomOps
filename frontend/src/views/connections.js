@@ -1,4 +1,4 @@
-import {GetSettings, SaveSettings, TestConnection, DetectServices, TestAI, SendTestNotification, SendTestWebhook, GetMonitorStatus, LastResult, GetAppVersion, PendingUpdate} from '../../wailsjs/go/main/App';
+import {GetSettings, SaveSettings, TestConnection, InspectSSHHostKey, TrustSSHHostKey, DetectServices, TestAI, SendTestNotification, SendTestWebhook, GetMonitorStatus, LastResult, GetAppVersion, PendingUpdate} from '../../wailsjs/go/main/App';
 import {esc, clock} from '../util.js';
 import {logo} from '../logos.js';
 import {mountUpdates} from './updates.js';
@@ -447,6 +447,7 @@ function renderForm() {
                     ${fd.help ? `<span class="muted small">${esc(fd.help)}</span>` : ''}</label>`;
             }).join('')}
             <label class="check"><input type="checkbox" name="enabled" ${c.enabled ? 'checked' : ''}> Enabled</label>
+            ${f.type === 'ssh' ? renderHostKeyBox() : ''}
             <div id="form-test" class="form-test"></div>
             ${f.error ? `<div class="alert alert-bad">${esc(f.error)}</div>` : ''}
             <div class="modal-actions">
@@ -454,6 +455,35 @@ function renderForm() {
                 <button type="submit" class="btn">${f.editing ? 'Save changes' : 'Add connection'}</button>
             </div>
         </form></div></div>`;
+}
+
+// The host-key panel on the SSH form. Its contents are drawn into #hostkey-out
+// by the handlers below, so checking a host never re-renders (and never
+// clears) the rest of the form.
+function renderHostKeyBox() {
+    return `<div class="hostkey-box">
+        <div class="hostkey-head"><strong>Host key</strong>
+            <button type="button" class="btn btn-small btn-secondary" id="hostkey-check">Check host key</button></div>
+        <p class="muted small" style="margin:6px 0 0">Reads the server's key without logging in. If the server is new to this computer you can compare its fingerprint and trust it, instead of editing known_hosts by hand.</p>
+        <div id="hostkey-out"></div>
+    </div>`;
+}
+
+// drawHostKey shows the result of a host-key check in the panel.
+function drawHostKey(out, info) {
+    const fp = `<div class="hostkey-fp"><span class="muted small">${esc(info.keyType)} · SHA256 fingerprint</span><code>${esc(info.fingerprint)}</code></div>`;
+    if (info.status === 'trusted') {
+        out.innerHTML = `<div class="alert alert-ok"><span class="alert-text">Trusted. This server's key is already in <code>${esc(info.knownHostsPath)}</code>.</span></div>${fp}`;
+    } else if (info.status === 'changed') {
+        out.innerHTML = `<div class="alert alert-bad"><span class="alert-text"><strong>The host key has changed.</strong> known_hosts has a different key for this server
+            (${(info.known || []).map(k => `<code>${esc(k)}</code>`).join(', ')}). This can mean the server was reinstalled, or that someone is intercepting the connection.
+            PhantomOps will not connect and will not replace the old key. Verify the new fingerprint with the server's owner, then remove the old line from
+            <code>${esc(info.knownHostsPath)}</code> yourself.</span></div>${fp}`;
+    } else {
+        out.innerHTML = `<div class="alert"><span class="alert-text">This server is not in <code>${esc(info.knownHostsPath)}</code> yet. Compare this fingerprint with one you got from a trusted source
+            (for example by running <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code> on the server) before trusting it.</span></div>${fp}
+            <div class="toolbar-actions"><button type="button" class="btn btn-small" id="hostkey-trust" data-fp="${esc(info.fingerprint)}">Trust this key</button></div>`;
+    }
 }
 
 // ---------- behaviour ----------
@@ -649,6 +679,25 @@ function bind() {
         state.form = {type: b.dataset.type, conn: blankConn(b.dataset.type), editing: false, error: ''};
         render();
     }));
+    $('#hostkey-check')?.addEventListener('click', async e => {
+        const out = $('#hostkey-out');
+        e.target.disabled = true; e.target.textContent = 'Checking…';
+        out.innerHTML = '';
+        try { drawHostKey(out, await InspectSSHHostKey(readForm())); }
+        catch (err) { out.innerHTML = `<div class="alert alert-bad">${esc(String(err).replace(/^Error: /, ''))}</div>`; }
+        e.target.disabled = false; e.target.textContent = 'Check host key';
+    });
+    // Event delegation: the Trust button only exists after a check.
+    $('#hostkey-out')?.addEventListener('click', async e => {
+        const btn = e.target.closest('#hostkey-trust');
+        if (!btn) return;
+        const out = $('#hostkey-out');
+        btn.disabled = true; btn.textContent = 'Saving…';
+        try { drawHostKey(out, await TrustSSHHostKey(readForm(), btn.dataset.fp)); }
+        catch (err) {
+            out.innerHTML = `<div class="alert alert-bad">${esc(String(err).replace(/^Error: /, ''))}</div>`;
+        }
+    });
     $('#form-test-btn')?.addEventListener('click', async e => {
         const out = $('#form-test');
         e.target.disabled = true; e.target.textContent = 'Testing…';
