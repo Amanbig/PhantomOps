@@ -85,10 +85,11 @@ STUB = r"""
       c('4', 'old-job', 'busybox', 'exited', 'Exited (1) 2 hours ago', '', null, null, null, 0, false, 1)],
     summary: {total: 4, running: 2, stopped: 1, unhealthy: 0, restarts: 7}};
   const D = {settings, last, history: [record, resolved], monitor: {enabled: true, intervalMinutes: 5, lastScan: ago(1), nextScan: ago(-4), scanning: false, notify: true, webhooks: []},
-    snapshots: {docker: dockerSnap}, ...OVERRIDE};
+    snapshots: {docker: dockerSnap}, audit: [], deliveries: [], ...OVERRIDE};
   const App = {
     GetSettings: async () => JSON.parse(JSON.stringify(D.settings)), LastResult: async () => D.last, GetHistory: async () => D.history,
     GetMonitorStatus: async () => D.monitor, GetAppVersion: async () => '0.3.1', PendingUpdate: async () => null, MuteRules: async () => [],
+    AuditLog: async () => D.audit, WebhookDeliveries: async () => D.deliveries,
     SaveSettings: async () => null, Scan: async () => D.last,
     ConnectionSnapshot: async id => { const t = (D.settings.config.connections.find(x => x.id === id) || {}).type;
       if (D.snapshots[t]) return D.snapshots[t]; throw 'no snapshot fixture for ' + t + ' (see dev/ui/shot.py --help)'; },

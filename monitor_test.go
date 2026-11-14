@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -239,5 +240,94 @@ func TestTrustingAHostKeyIsRefusedWhenTheAuditLogCannotBeWritten(t *testing.T) {
 	}
 	if _, serr := os.Stat(khPath); !os.IsNotExist(serr) {
 		t.Error("known_hosts was touched although the intent could not be recorded")
+	}
+}
+
+func waitForDeliveries(t *testing.T, a *App, n int) []notify.Delivery {
+	t.Helper()
+	deadline := time.Now().Add(4 * time.Second)
+	for time.Now().Before(deadline) {
+		if got := a.WebhookDeliveries(100); len(got) >= n {
+			return got
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("only %d deliveries were recorded, want %d: %+v", len(a.WebhookDeliveries(100)), n, a.WebhookDeliveries(100))
+	return nil
+}
+
+func TestWebhookDeliveriesAreLoggedIncludingSkippedAndFailed(t *testing.T) {
+	a := newTestApp(t)
+	good := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer good.Close()
+	const secret = "s3cr3t-path-token"
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(500) }))
+	defer bad.Close()
+
+	_, changes, _ := a.history.Observe([]model.Incident{
+		incident("a", "first", model.SeverityCritical),
+		incident("b", "second", model.SeverityCritical),
+		incident("c", "third", model.SeverityCritical),
+	}, true)
+	chans := []notify.Channel{
+		{ID: "good", Name: "ops", Type: notify.TypeGeneric, Enabled: true, URL: good.URL, MinSeverity: "critical"},
+		{ID: "bad", Name: "pager", Type: notify.TypeGeneric, Enabled: true, URL: bad.URL + "/" + secret, MinSeverity: "critical"},
+	}
+	a.cfg.Webhooks = chans
+	a.sendWebhooks(changes, chans)
+	got := waitForDeliveries(t, a, 6) // 3 messages x 2 channels
+
+	var ok, failed, skipped int
+	for _, d := range got {
+		switch {
+		case d.Channel == "ops" && d.OK && !d.Skipped:
+			ok++
+		case d.Channel == "pager" && !d.OK && !d.Skipped && strings.Contains(d.Error, "500"):
+			failed++
+		case d.Channel == "pager" && d.Skipped && !d.OK:
+			skipped++
+		default:
+			t.Errorf("unexpected record: %+v", d)
+		}
+		if blob := fmt.Sprintf("%+v", d); strings.Contains(blob, secret) || strings.Contains(blob, bad.URL) || strings.Contains(blob, good.URL) {
+			t.Errorf("a delivery record leaks a webhook URL: %s", blob)
+		}
+	}
+	if ok != 3 || failed != 1 || skipped != 2 {
+		t.Errorf("ok=%d failed=%d skipped=%d, want 3 delivered, 1 failed and 2 skipped after the failure", ok, failed, skipped)
+	}
+	if got[0].At.Before(got[len(got)-1].At) {
+		t.Error("deliveries must be newest first")
+	}
+}
+
+func TestTheTestMessageIsLoggedToo(t *testing.T) {
+	a := newTestApp(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer srv.Close()
+	if err := a.SendTestWebhook(notify.Channel{Name: "scratch", Type: notify.TypeGeneric, URL: srv.URL}); err != nil {
+		t.Fatal(err)
+	}
+	got := a.WebhookDeliveries(10)
+	if len(got) != 1 || got[0].Kind != "test" || !got[0].OK || got[0].Channel != "scratch" {
+		t.Errorf("deliveries = %+v", got)
+	}
+	if a.WebhookDeliveries(0) == nil || NewAppEmptyLog(t) == nil {
+		t.Error("the list must never be nil")
+	}
+}
+
+func NewAppEmptyLog(t *testing.T) []notify.Delivery { return NewApp().WebhookDeliveries(5) }
+
+func TestWebhookDeliveriesLimitIsClamped(t *testing.T) {
+	a := newTestApp(t)
+	for i := 0; i < 150; i++ {
+		a.hookLog.Add(notify.Delivery{Title: fmt.Sprint("m", i), OK: true})
+	}
+	cases := map[int]int{0: 100, -5: 100, 1: 1, 20: 20, 150: 150, 200: 150, 201: 100, 100000: 100}
+	for limit, want := range cases {
+		if got := len(a.WebhookDeliveries(limit)); got != want {
+			t.Errorf("WebhookDeliveries(%d) returned %d entries, want %d", limit, got, want)
+		}
 	}
 }

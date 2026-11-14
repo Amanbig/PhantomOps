@@ -77,3 +77,5 @@ export function UnacknowledgeIncident(arg1:string):Promise<void>;
 export function UnmuteIncident(arg1:string):Promise<void>;
 
 export function UnsnoozeIncident(arg1:string):Promise<void>;
+
+export function WebhookDeliveries(arg1:number):Promise<Array<notify.Delivery>>;

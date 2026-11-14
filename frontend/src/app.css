@@ -406,3 +406,4 @@ select option { background-color: var(--panel); color: var(--text); }
 .hostkey-fp code { word-break: break-all; user-select: all; }
 .alert-text { display: block; min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
 .alert-text code { font-size: 13px; }
+.section-title { margin: 28px 0 6px; font-size: 16px; }

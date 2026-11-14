@@ -137,3 +137,7 @@ export function UnmuteIncident(arg1) {
 export function UnsnoozeIncident(arg1) {
   return window['go']['main']['App']['UnsnoozeIncident'](arg1);
 }
+
+export function WebhookDeliveries(arg1) {
+  return window['go']['main']['App']['WebhookDeliveries'](arg1);
+}

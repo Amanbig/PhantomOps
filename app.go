@@ -93,6 +93,7 @@ type App struct {
 	notifyErr   string
 	hooks       *notify.Sender
 	hookStatus  map[string]WebhookStatus // last delivery result per webhook ID
+	hookLog     *notify.Log              // recent webhook deliveries (memory only)
 
 	updater       *updater.Updater
 	pendingUpdate *updater.Info
@@ -115,6 +116,7 @@ func NewApp() *App {
 		approvals:   remediate.NewApprovals(),
 		monitorWake: make(chan struct{}, 1),
 		hooks:       notify.NewSender(),
+		hookLog:     notify.NewLog(200),
 		audit:       remediate.NewAuditLog(filepath.Join(filepath.Dir(config.Path()), "audit.log")),
 	}
 }
