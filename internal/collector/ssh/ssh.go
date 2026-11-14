@@ -50,6 +50,30 @@ type Collector struct {
 
 	// dial opens an Exec session; replaceable in tests.
 	dial func(ctx context.Context) (Exec, func(), error)
+	// dialFull is dial with stderr, used by CommandRunner.
+	dialFull func(ctx context.Context) (execFull, func(), error)
+}
+
+// execFull is Exec that also returns stderr.
+type execFull func(ctx context.Context, cmd string) (stdout, stderr string, exitCode int, err error)
+
+// Output limits, so a runaway command cannot exhaust memory.
+const (
+	maxStdout = 64 << 20
+	maxStderr = 64 << 10
+)
+
+// limitedBuffer is a bytes.Buffer that refuses to grow past max.
+type limitedBuffer struct {
+	buf bytes.Buffer
+	max int
+}
+
+func (l *limitedBuffer) Write(p []byte) (int, error) {
+	if l.buf.Len()+len(p) > l.max {
+		return 0, fmt.Errorf("command output is larger than %d MB", l.max>>20)
+	}
+	return l.buf.Write(p)
 }
 
 // New creates an SSH collector.
@@ -62,7 +86,17 @@ func New(cfg Config) (*Collector, error) {
 	}
 	host, _, _ := net.SplitHostPort(cfg.Addr)
 	c := &Collector{cfg: cfg, host: host, now: func() time.Time { return time.Now().UTC() }}
-	c.dial = c.dialSSH
+	c.dialFull = c.dialSSHFull
+	c.dial = func(ctx context.Context) (Exec, func(), error) {
+		full, closeFn, err := c.dialFull(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		return func(ctx context.Context, cmd string) (string, int, error) {
+			out, _, code, err := full(ctx, cmd)
+			return out, code, err
+		}, closeFn, nil
+	}
 	return c, nil
 }
 
@@ -121,7 +155,7 @@ func (c *Collector) info(title, detail string) model.Event {
 	return c.event(model.KindOther, model.SeverityInfo, title, detail)
 }
 
-func (c *Collector) dialSSH(ctx context.Context) (Exec, func(), error) {
+func (c *Collector) dialSSHFull(ctx context.Context) (execFull, func(), error) {
 	auth, closeAuth, err := c.authMethods()
 	if err != nil {
 		return nil, nil, err
@@ -148,26 +182,26 @@ func (c *Collector) dialSSH(ctx context.Context) (Exec, func(), error) {
 	client := gossh.NewClient(sc, chans, reqs)
 	closeFn := func() { client.Close(); closeAuth() }
 
-	run := func(ctx context.Context, cmd string) (string, int, error) {
+	run := func(ctx context.Context, cmd string) (string, string, int, error) {
 		sess, err := client.NewSession()
 		if err != nil {
-			return "", 0, err
+			return "", "", 0, err
 		}
 		defer sess.Close()
-		var stdout bytes.Buffer
-		sess.Stdout = &stdout
+		stdout, stderr := &limitedBuffer{max: maxStdout}, &limitedBuffer{max: maxStderr}
+		sess.Stdout, sess.Stderr = stdout, stderr
 		done := make(chan error, 1)
 		go func() { done <- sess.Run(cmd) }()
 		select {
 		case <-ctx.Done():
 			sess.Close()
-			return "", 0, ctx.Err()
+			return "", "", 0, ctx.Err()
 		case err := <-done:
 			var ee *gossh.ExitError
 			if errors.As(err, &ee) {
-				return stdout.String(), ee.ExitStatus(), nil
+				return stdout.buf.String(), stderr.buf.String(), ee.ExitStatus(), nil
 			}
-			return stdout.String(), 0, err
+			return stdout.buf.String(), stderr.buf.String(), 0, err
 		}
 	}
 	return run, closeFn, nil

@@ -55,11 +55,16 @@ type Connection struct {
 	Enabled bool   `json:"enabled"`
 
 	Socket string `json:"socket"` // docker
-	// SSHConnection references an SSH connection used to run read-only Docker CLI commands remotely.
+	// SSHConnection references a saved SSH connection. A Docker or Kubernetes
+	// connection that sets it runs fixed read-only CLI commands on that host
+	// instead of locally. Rollbacks are never performed through it.
 	SSHConnection string `json:"sshConnection"`
 	// RemoteSocket is the Docker socket path on the SSH host; empty uses Docker's default.
 	RemoteSocket string `json:"remoteSocket"`
-	Context      string `json:"context"` // kubernetes
+	// RemoteKubeconfig is an absolute kubeconfig path on the SSH host; empty
+	// uses kubectl's own lookup there.
+	RemoteKubeconfig string `json:"remoteKubeconfig"`
+	Context          string `json:"context"` // kubernetes
 	// Kubeconfig is an optional kubeconfig file for kubernetes connections.
 	// Empty means: $KUBECONFIG, then ~/.kube/config, then kubectl's default.
 	Kubeconfig string `json:"kubeconfig"`
@@ -323,6 +328,7 @@ func (c *Config) Normalize() {
 		cn.Socket = strings.TrimSpace(cn.Socket)
 		cn.SSHConnection = strings.TrimSpace(cn.SSHConnection)
 		cn.RemoteSocket = strings.TrimSpace(cn.RemoteSocket)
+		cn.RemoteKubeconfig = strings.TrimSpace(cn.RemoteKubeconfig)
 		cn.Context = strings.TrimSpace(cn.Context)
 		cn.Kubeconfig = strings.TrimSpace(cn.Kubeconfig)
 		cn.KeyPath = strings.TrimSpace(cn.KeyPath)
@@ -386,11 +392,15 @@ func (c Config) Validate() error {
 		return errors.New(strings.Join(problems, "; "))
 	}
 	for _, cn := range c.Connections {
-		if cn.Type != TypeDocker || cn.SSHConnection == "" {
+		if (cn.Type != TypeDocker && cn.Type != TypeKubernetes) || cn.SSHConnection == "" {
 			continue
 		}
-		if cn.RemoteSocket != "" && !strings.HasPrefix(cn.RemoteSocket, "/") {
+		if cn.Type == TypeDocker && cn.RemoteSocket != "" && !strings.HasPrefix(cn.RemoteSocket, "/") {
 			problems = append(problems, fmt.Sprintf("%s: remote Docker socket must be an absolute path", cn.Name))
+		}
+		if cn.Type == TypeKubernetes && cn.RemoteKubeconfig != "" &&
+			(!strings.HasPrefix(cn.RemoteKubeconfig, "/") || strings.ContainsAny(cn.RemoteKubeconfig, "\x00\n\r")) {
+			problems = append(problems, fmt.Sprintf("%s: remote kubeconfig must be an absolute path on the SSH host (for example /home/ops/.kube/config; ~ is not expanded)", cn.Name))
 		}
 		found := false
 		for _, sshConn := range c.Connections {
@@ -442,22 +452,31 @@ func (cn Connection) Validate() error {
 	return fmt.Errorf("unknown connection type %q", cn.Type)
 }
 
+// sshHost returns the SSH settings of the connection a Docker or Kubernetes
+// connection runs through.
+func (c Config) sshHost(cn Connection) (sshc.Config, error) {
+	for _, h := range c.Connections {
+		if h.ID == cn.SSHConnection && h.Type == TypeSSH {
+			return sshc.Config{Addr: h.Addr, User: h.User, KeyPath: h.KeyPath,
+				KnownHosts: h.KnownHosts, Insecure: h.Insecure}, nil
+		}
+	}
+	return sshc.Config{}, fmt.Errorf("SSH connection %q was not found", cn.SSHConnection)
+}
+
 // CollectorFor builds a connection collector with access to the full config,
-// which is needed when a Docker connection references an SSH connection.
+// which is needed when a Docker or Kubernetes connection runs through a saved
+// SSH connection.
 func (c Config) CollectorFor(cn Connection) (collector.Collector, error) {
-	if cn.Type == TypeDocker && cn.SSHConnection != "" {
-		var host *Connection
-		for i := range c.Connections {
-			if c.Connections[i].ID == cn.SSHConnection {
-				host = &c.Connections[i]
-				break
-			}
+	if cn.SSHConnection != "" && (cn.Type == TypeDocker || cn.Type == TypeKubernetes) {
+		host, err := c.sshHost(cn)
+		if err != nil {
+			return nil, err
 		}
-		if host == nil || host.Type != TypeSSH {
-			return nil, fmt.Errorf("SSH connection %q was not found", cn.SSHConnection)
+		if cn.Type == TypeDocker {
+			return docker.NewRemote(host, cn.RemoteSocket)
 		}
-		return docker.NewRemote(sshc.Config{Addr: host.Addr, User: host.User, KeyPath: host.KeyPath,
-			KnownHosts: host.KnownHosts, Insecure: host.Insecure}, cn.RemoteSocket)
+		return kubernetes.NewRemote(host, cn.Context, cn.RemoteKubeconfig)
 	}
 	return cn.Collector()
 }

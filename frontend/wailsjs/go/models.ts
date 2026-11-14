@@ -68,6 +68,9 @@ export namespace config {
 	    name: string;
 	    enabled: boolean;
 	    socket: string;
+	    sshConnection: string;
+	    remoteSocket: string;
+	    remoteKubeconfig: string;
 	    context: string;
 	    kubeconfig: string;
 	    url: string;
@@ -91,6 +94,9 @@ export namespace config {
 	        this.name = source["name"];
 	        this.enabled = source["enabled"];
 	        this.socket = source["socket"];
+	        this.sshConnection = source["sshConnection"];
+	        this.remoteSocket = source["remoteSocket"];
+	        this.remoteKubeconfig = source["remoteKubeconfig"];
 	        this.context = source["context"];
 	        this.kubeconfig = source["kubeconfig"];
 	        this.url = source["url"];

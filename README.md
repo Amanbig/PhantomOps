@@ -25,9 +25,13 @@ Open the **Connections** tab to add Docker/Podman, Kubernetes (k3s), Prometheus,
 Each connection can be tested before saving, enabled/disabled, edited or deleted, and **Detect local
 services** finds the ones running on your machine.
 
-For Docker on another Linux host, add and save its SSH connection first, then add Docker and select
-**Run through SSH connection**. PhantomOps runs a fixed, read-only Docker CLI allowlist through the
-verified SSH host key. It does not enable Docker mutations or accept arbitrary remote commands. Until you save, Docker and Kubernetes (`kubectl`) are
+For Docker or Kubernetes on another Linux host, add and save its SSH connection first, then add Docker or
+Kubernetes and select **Run through SSH connection**. PhantomOps runs a fixed, read-only allowlist of
+`docker` / `kubectl` commands on that host, over the verified SSH host key, and never accepts arbitrary
+remote commands. Requirements on the remote host: `docker` or `kubectl` on the SSH user's `PATH`
+(non-interactive SSH does not read `~/.bashrc`), a user allowed to use Docker, and for Kubernetes a
+readable kubeconfig (set **Remote kubeconfig file** if it is not `~/.kube/config`). This is monitoring only:
+rollbacks are never performed through SSH. Until you save, Docker and Kubernetes (`kubectl`) are
 auto-detected so the app works out of the box.
 
 Settings are stored in `$PHANTOM_CONFIG` or `<user config dir>/phantomops/config.json`

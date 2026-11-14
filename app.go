@@ -371,6 +371,11 @@ func (a *App) executorFor(inv model.Investigation) (remediate.Executor, error) {
 	if !ok {
 		return nil, fmt.Errorf("connection %q is not available or is disabled", inv.TargetConnection)
 	}
+	// Rollbacks run kubectl locally. A connection that reads a cluster through
+	// SSH would point them at the wrong cluster, so it is refused outright.
+	if conn.SSHConnection != "" {
+		return nil, fmt.Errorf("connection %q reads through SSH, which is monitoring only: PhantomOps will not perform a rollback on it. Roll back from that host yourself, or connect the cluster directly", conn.Name)
+	}
 	switch {
 	case conn.Type == config.TypeKubernetes && inv.TargetSource == "kubernetes":
 		return remediate.NewKube(conn.Name, conn.Context, conn.Kubeconfig), nil

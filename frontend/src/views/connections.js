@@ -23,6 +23,10 @@ const TYPES = {
                 help: 'Leave empty to use the current context.'},
             {key: 'kubeconfig', label: 'kubeconfig file', placeholder: '(automatic)',
                 help: 'Leave empty to use $KUBECONFIG, then ~/.kube/config. Set it if the app cannot find your cluster, e.g. when started from the desktop menu.'},
+            {key: 'sshConnection', label: 'Run through SSH connection', type: 'ssh-select',
+                help: 'Optional. For a cluster on another server: run read-only kubectl checks on that host over a saved SSH connection. Monitoring only; rollbacks are not performed through SSH, and the local kubeconfig above is not used.'},
+            {key: 'remoteKubeconfig', label: 'Remote kubeconfig file', placeholder: '/home/user/.kube/config',
+                help: 'Only used through SSH. Absolute path on that host (~ is not expanded). Leave empty to use kubectl\'s own lookup there. Non-interactive SSH does not read ~/.bashrc, so set this if kubectl cannot find the cluster.'},
         ],
     },
     prometheus: {
@@ -149,14 +153,15 @@ function cloneConfig() {
 function summary(c) {
     switch (c.type) {
         case 'docker': return c.sshConnection ? `via SSH · ${c.remoteSocket || '/var/run/docker.sock'}` : (c.socket || '/var/run/docker.sock');
-        case 'kubernetes': return (c.context ? `context: ${c.context}` : 'current kubectl context') + (c.kubeconfig ? ` · ${c.kubeconfig}` : '');
+        case 'kubernetes': return c.sshConnection ? `via SSH · ${c.context ? 'context: ' + c.context : 'current kubectl context'}${c.remoteKubeconfig ? ' · ' + c.remoteKubeconfig : ''}`
+            : (c.context ? `context: ${c.context}` : 'current kubectl context') + (c.kubeconfig ? ` · ${c.kubeconfig}` : '');
         case 'ssh': return `${c.user}@${c.addr}` + (c.expectedPorts?.length ? ` · ports ${c.expectedPorts.join(', ')}` : '');
         default: return c.url;
     }
 }
 
 function sameTarget(a, b) {
-    return a.type === b.type && (a.socket || '') === (b.socket || '') && (a.sshConnection || '') === (b.sshConnection || '') && (a.remoteSocket || '') === (b.remoteSocket || '') && (a.context || '') === (b.context || '') &&
+    return a.type === b.type && (a.socket || '') === (b.socket || '') && (a.sshConnection || '') === (b.sshConnection || '') && (a.remoteSocket || '') === (b.remoteSocket || '') && (a.remoteKubeconfig || '') === (b.remoteKubeconfig || '') && (a.context || '') === (b.context || '') &&
         (a.url || '') === (b.url || '') && (a.addr || '') === (b.addr || '') && (a.kubeconfig || '') === (b.kubeconfig || '');
 }
 
@@ -428,7 +433,7 @@ function renderForm() {
                 }
                 if (fd.type === 'ssh-select') {
                     const ssh = (state.settings?.config?.connections || []).filter(x => x.type === 'ssh');
-                    return `<label>${esc(fd.label)}<select name="${esc(fd.key)}"><option value="">Local Docker</option>${ssh.map(x => `<option value="${esc(x.id)}" ${c[fd.key] === x.id ? 'selected' : ''}>${esc(x.name)} · ${esc(x.user || '')}@${esc(x.addr || '')}</option>`).join('')}</select>
+                    return `<label>${esc(fd.label)}<select name="${esc(fd.key)}"><option value="">Directly from this computer</option>${ssh.map(x => `<option value="${esc(x.id)}" ${c[fd.key] === x.id ? 'selected' : ''}>${esc(x.name)} · ${esc(x.user || '')}@${esc(x.addr || '')}</option>`).join('')}</select>
                         ${fd.help ? `<span class="muted small">${esc(fd.help)}</span>` : ''}</label>`;
                 }
                 return `<label>${esc(fd.label)}${fd.required ? ' *' : ''}
@@ -467,7 +472,7 @@ function readForm() {
 
 function blankConn(type) {
     const t = TYPES[type];
-    return {id: '', type, name: t.label, enabled: true, socket: '', sshConnection: '', remoteSocket: '', context: '', kubeconfig: '', url: '', query: '', token: '',
+    return {id: '', type, name: t.label, enabled: true, socket: '', sshConnection: '', remoteSocket: '', remoteKubeconfig: '', context: '', kubeconfig: '', url: '', query: '', token: '',
         addr: '', user: '', keyPath: '', knownHosts: '', insecure: false, expectedPorts: []};
 }
 

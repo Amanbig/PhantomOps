@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"PhantomOps/internal/config"
 	"PhantomOps/internal/history"
 	"PhantomOps/internal/model"
 	"PhantomOps/internal/notify"
@@ -154,5 +155,23 @@ func TestIncidentReportFromHistory(t *testing.T) {
 	}
 	if _, err := a.IncidentReport("missing"); err == nil {
 		t.Error("unknown incident must be an error")
+	}
+}
+
+func TestRollbackIsRefusedForConnectionsThatReadThroughSSH(t *testing.T) {
+	a := newTestApp(t)
+	a.cfg.Connections = []config.Connection{
+		{ID: "ssh1", Type: config.TypeSSH, Name: "edge", Enabled: true, Addr: "edge:22", User: "ops"},
+		{ID: "k1", Type: config.TypeKubernetes, Name: "edge-k3s", Enabled: true, SSHConnection: "ssh1"},
+		{ID: "k2", Type: config.TypeKubernetes, Name: "local-k3s", Enabled: true},
+	}
+	inv := func(conn string) model.Investigation {
+		return model.Investigation{Action: "rollback", Target: "default/api", TargetSource: "kubernetes", TargetConnection: conn}
+	}
+	if _, err := a.executorFor(inv("edge-k3s")); err == nil || !strings.Contains(err.Error(), "monitoring only") {
+		t.Errorf("a rollback through SSH must be refused, got %v", err)
+	}
+	if ex, err := a.executorFor(inv("local-k3s")); err != nil || ex == nil {
+		t.Errorf("a direct connection must still be allowed: %v", err)
 	}
 }
