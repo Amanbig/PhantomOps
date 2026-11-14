@@ -331,3 +331,26 @@ func TestWebhookDeliveriesLimitIsClamped(t *testing.T) {
 		}
 	}
 }
+
+// The Incidents page shows the incidents a scan returned, and its report
+// button asks for a report by that ID. They must be the same ID the history
+// stores, or the button would report "not found" for a live incident.
+func TestALiveIncidentFromAScanCanBeReported(t *testing.T) {
+	a := newTestApp(t)
+	live, _, err := a.history.Observe([]model.Incident{incident("scan-local-id", "crash", model.SeverityCritical)}, true)
+	if err != nil || len(live) != 1 {
+		t.Fatalf("live=%v err=%v", live, err)
+	}
+	md, err := a.IncidentReport(live[0].ID)
+	if err != nil || !strings.Contains(md, "# Incident report: crash") {
+		t.Fatalf("a live incident's own ID must produce a report: err=%v\n%s", err, md)
+	}
+	// ... and still does after the next scan updates the same incident.
+	again, _, _ := a.history.Observe([]model.Incident{incident("another-local-id", "crash", model.SeverityCritical)}, true)
+	if len(again) != 1 || again[0].ID != live[0].ID {
+		t.Errorf("the same incident must keep its ID across scans: %q vs %q", again[0].ID, live[0].ID)
+	}
+	if _, err := a.IncidentReport(live[0].ID); err != nil {
+		t.Errorf("after a second scan: %v", err)
+	}
+}

@@ -2,6 +2,7 @@ import {Scan, LastResult, GetMonitorStatus, AcknowledgeIncident, UnacknowledgeIn
 import {EventsOn} from '../../wailsjs/runtime/runtime';
 import {openRollback} from './rollback.js';
 import {esc, clock} from '../util.js';
+import {reportButtons, handleReportClick} from '../report.js';
 
 const SOURCE_LABEL = {
     docker: 'Docker', kubernetes: 'Kubernetes', nomad: 'Nomad', prometheus: 'Prometheus',
@@ -117,6 +118,7 @@ function renderIncident(inc) {
             ${renderTriage(inc)}
             <ol class="timeline">${events}</ol>
             ${renderInvestigation(inc)}
+            ${reportButtons(inc.id)}
         </article>`;
 }
 
@@ -233,6 +235,7 @@ export async function mountIncidents(root, {goToConnections, focusId} = {}) {
 
     btn.addEventListener('click', scan);
     content.addEventListener('click', async e => {
+        if (await handleReportClick(e.target)) return;
         const b = e.target.closest('[data-approve]');
         if (b) {
             const inc = incidentsById.get(b.dataset.approve);
