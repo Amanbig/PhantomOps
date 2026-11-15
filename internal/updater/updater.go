@@ -88,6 +88,10 @@ type Progress struct {
 	ReadBytes  int64  `json:"readBytes"`
 	TotalBytes int64  `json:"totalBytes"`
 	Message    string `json:"message"`
+	// WillQuit is true when the application is about to close itself so an
+	// installer can replace it (the Windows installer cannot overwrite a
+	// running program). The UI must not offer "Restart now" then.
+	WillQuit bool `json:"willQuit"`
 }
 
 type ghAsset struct {
@@ -119,6 +123,12 @@ type Updater struct {
 
 	// OnProgress, if set, is called on every progress change.
 	OnProgress func(Progress)
+
+	// OnInstallerStarted, if set, is called once after a downloaded installer
+	// has started successfully, so the application can close and let the
+	// installer replace it. It is not called when the installer failed to
+	// start (for example because the permission prompt was declined).
+	OnInstallerStarted func()
 
 	// for tests
 	targetOverride string
@@ -453,7 +463,19 @@ func (u *Updater) Install(ctx context.Context, assetName string) (err error) {
 	u.target = exe
 	u.mu.Unlock()
 	msg := installedMessage(asset.Name, rel.TagName)
-	u.setProgress(Progress{Status: "ready", Percentage: 100, Message: msg})
+	// The Windows installer cannot overwrite a running program, so the app
+	// closes itself once the installer is up. That is announced first, so the
+	// message is on screen before the window goes away.
+	willQuit := assetType(asset.Name) == "exe"
+	u.setProgress(Progress{Status: "ready", Percentage: 100, Message: msg, WillQuit: willQuit})
+	if willQuit {
+		u.mu.Lock()
+		cb := u.OnInstallerStarted
+		u.mu.Unlock()
+		if cb != nil {
+			cb()
+		}
+	}
 	return nil
 }
 
@@ -663,7 +685,8 @@ func (u *Updater) Restart() error {
 func installedMessage(assetName, tag string) string {
 	switch assetType(assetName) {
 	case "exe":
-		return "The installer has been opened. Windows may ask for permission first; choose Yes. Follow its steps, then restart PhantomOps."
+		// Windows has already asked for permission by the time this is shown.
+		return "The installer has been opened. PhantomOps is closing so the installer can replace it. When the installer finishes, start PhantomOps again from the Start menu or the desktop shortcut."
 	case "dmg":
 		return "The installer has been opened. Follow its steps, then restart PhantomOps."
 	}

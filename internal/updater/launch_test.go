@@ -104,8 +104,11 @@ func TestOtherInstallTypesDoNotUseTheWindowsLauncher(t *testing.T) {
 
 func TestWhatTheUserIsToldAfterTheUpdateStep(t *testing.T) {
 	win := installedMessage("phantomops-windows-amd64-installer.exe", "v9.9.9")
-	if !strings.Contains(win, "Windows may ask for permission") || !strings.Contains(win, "choose Yes") || !strings.Contains(win, "restart PhantomOps") {
+	if !strings.Contains(win, "PhantomOps is closing") || !strings.Contains(win, "start PhantomOps again") || !strings.Contains(win, "Start menu") {
 		t.Errorf("windows message = %q", win)
+	}
+	if strings.Contains(win, "choose Yes") || strings.Contains(win, "may ask for permission") {
+		t.Errorf("by the time this is shown Windows has already asked for permission; the message must not say it may: %q", win)
 	}
 	if mac := installedMessage("phantomops-darwin-universal.dmg", "v9.9.9"); !strings.Contains(mac, "installer has been opened") || strings.Contains(mac, "Windows") {
 		t.Errorf("macOS message = %q", mac)

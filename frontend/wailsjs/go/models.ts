@@ -941,6 +941,7 @@ export namespace updater {
 	    readBytes: number;
 	    totalBytes: number;
 	    message: string;
+	    willQuit: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Progress(source);
@@ -953,6 +954,7 @@ export namespace updater {
 	        this.readBytes = source["readBytes"];
 	        this.totalBytes = source["totalBytes"];
 	        this.message = source["message"];
+	        this.willQuit = source["willQuit"];
 	    }
 	}
 
