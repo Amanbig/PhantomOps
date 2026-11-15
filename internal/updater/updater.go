@@ -452,10 +452,7 @@ func (u *Updater) Install(ctx context.Context, assetName string) (err error) {
 	u.mu.Lock()
 	u.target = exe
 	u.mu.Unlock()
-	msg := "Update installed. Restart PhantomOps to use " + rel.TagName + "."
-	if assetType(asset.Name) == "exe" || assetType(asset.Name) == "dmg" {
-		msg = "The installer has been opened. Follow its steps, then restart PhantomOps."
-	}
+	msg := installedMessage(asset.Name, rel.TagName)
 	u.setProgress(Progress{Status: "ready", Percentage: 100, Message: msg})
 	return nil
 }
@@ -533,7 +530,7 @@ func (u *Updater) apply(name string, data []byte, exe string) error {
 		if err != nil {
 			return err
 		}
-		return exec.Command(inst).Start()
+		return startInstaller(inst)
 	case "dmg":
 		img, err := writeTemp(name, data, 0o644)
 		if err != nil {
@@ -660,4 +657,15 @@ func (u *Updater) Restart() error {
 	}
 	os.Exit(0)
 	return nil
+}
+
+// installedMessage is what the user is told once the update step has finished.
+func installedMessage(assetName, tag string) string {
+	switch assetType(assetName) {
+	case "exe":
+		return "The installer has been opened. Windows may ask for permission first; choose Yes. Follow its steps, then restart PhantomOps."
+	case "dmg":
+		return "The installer has been opened. Follow its steps, then restart PhantomOps."
+	}
+	return "Update installed. Restart PhantomOps to use " + tag + "."
 }
