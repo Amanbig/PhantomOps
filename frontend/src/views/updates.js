@@ -75,7 +75,7 @@ function draw() {
         <div class="toolbar-actions">
             <button class="btn btn-small btn-secondary" id="upd-check" ${state.checking || busy ? 'disabled' : ''}>${state.checking ? 'Checking…' : 'Check for updates'}</button>
             ${canInstall ? '<button class="btn btn-small" id="upd-install">Download &amp; install</button>' : ''}
-            ${progress?.status === 'ready' ? '<button class="btn btn-small" id="upd-restart">Restart now</button>' : ''}
+            ${progress?.status === 'ready' && !progress.willQuit ? '<button class="btn btn-small" id="upd-restart">Restart now</button>' : ''}
         </div>`;
     bind();
 }

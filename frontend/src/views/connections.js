@@ -469,6 +469,11 @@ function renderHostKeyBox() {
     </div>`;
 }
 
+// The file on the server that holds each key type, for the comparison advice.
+// A server usually has several host keys; the one shown is the one to compare.
+const HOSTKEY_FILE = {'ssh-ed25519': 'ed25519', 'ecdsa-sha2-nistp256': 'ecdsa', 'ecdsa-sha2-nistp384': 'ecdsa',
+    'ecdsa-sha2-nistp521': 'ecdsa', 'ssh-rsa': 'rsa', 'ssh-dss': 'dsa'};
+
 // drawHostKey shows the result of a host-key check in the panel.
 function drawHostKey(out, info) {
     const fp = `<div class="hostkey-fp"><span class="muted small">${esc(info.keyType)} · SHA256 fingerprint</span><code>${esc(info.fingerprint)}</code></div>`;
@@ -481,7 +486,10 @@ function drawHostKey(out, info) {
             <code>${esc(info.knownHostsPath)}</code> yourself.</span></div>${fp}`;
     } else {
         out.innerHTML = `<div class="alert"><span class="alert-text">This server is not in <code>${esc(info.knownHostsPath)}</code> yet. Compare this fingerprint with one you got from a trusted source
-            (for example by running <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code> on the server) before trusting it.</span></div>${fp}
+            ${HOSTKEY_FILE[info.keyType]
+                ? `(for example by running <code>ssh-keygen -lf /etc/ssh/ssh_host_${HOSTKEY_FILE[info.keyType]}_key.pub</code> on the server; a server can have several keys, so compare the ${esc(HOSTKEY_FILE[info.keyType])} one)`
+                : '(for example from the server\'s own <code>/etc/ssh/ssh_host_*_key.pub</code> files)'}
+            before trusting it.</span></div>${fp}
             <div class="toolbar-actions"><button type="button" class="btn btn-small" id="hostkey-trust" data-fp="${esc(info.fingerprint)}">Trust this key</button></div>`;
     }
 }

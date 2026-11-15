@@ -2,8 +2,11 @@ package ssh
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/pem"
 	"errors"
 	"io"
@@ -26,11 +29,13 @@ type testSSHD struct {
 	ln   net.Listener
 
 	hostKey      atomic.Pointer[gossh.Signer]
+	extraKeys    atomic.Pointer[[]gossh.Signer] // more host keys of other types (a real server has several)
 	clientPub    gossh.PublicKey
 	KeyPath      string       // the matching private key file for Config.KeyPath
 	authAttempts atomic.Int32 // public-key attempts
 	authRequests atomic.Int32 // every authentication request of any method, including "none"
 	logins       atomic.Int32
+	conns        atomic.Int32 // TCP connections accepted (one per handshake attempt)
 
 	allowForward atomic.Bool
 	execFn       func(cmd string) (stdout, stderr string, code int)
@@ -84,6 +89,7 @@ func startSSHD(t *testing.T) *testSSHD {
 			if err != nil {
 				return
 			}
+			s.conns.Add(1)
 			go s.serve(c)
 		}
 	}()
@@ -103,6 +109,11 @@ func (s *testSSHD) serve(c net.Conn) {
 		},
 	}
 	cfg.AddHostKey(*s.hostKey.Load())
+	if extra := s.extraKeys.Load(); extra != nil {
+		for _, k := range *extra {
+			cfg.AddHostKey(k)
+		}
+	}
 	conn, chans, reqs, err := gossh.NewServerConn(c, cfg)
 	if err != nil {
 		return
@@ -196,4 +207,48 @@ func (s *testSSHD) config(t *testing.T) Config {
 
 func (s *testSSHD) hostFingerprint() string {
 	return gossh.FingerprintSHA256((*s.hostKey.Load()).PublicKey())
+}
+
+// newECDSASigner returns a fresh ECDSA P-256 host key.
+func newECDSASigner(t *testing.T) gossh.Signer {
+	t.Helper()
+	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sg, err := gossh.NewSignerFromKey(k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sg
+}
+
+var (
+	rsaOnce   sync.Once
+	rsaSigner gossh.Signer
+)
+
+// newRSASigner returns an RSA host key (generated once: it is slow).
+func newRSASigner(t *testing.T) gossh.Signer {
+	t.Helper()
+	rsaOnce.Do(func() {
+		k, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rsaSigner, err = gossh.NewSignerFromKey(k); err != nil {
+			t.Fatal(err)
+		}
+	})
+	return rsaSigner
+}
+
+// offerSeveralKeys makes the server offer ed25519 (its main key), ECDSA and
+// RSA, like a real OpenSSH server.
+func (s *testSSHD) offerSeveralKeys(t *testing.T) (ed, ec, rs gossh.Signer) {
+	t.Helper()
+	ed, ec, rs = *s.hostKey.Load(), newECDSASigner(t), newRSASigner(t)
+	extra := []gossh.Signer{ec, rs}
+	s.extraKeys.Store(&extra)
+	return ed, ec, rs
 }

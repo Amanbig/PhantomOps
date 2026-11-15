@@ -10,6 +10,10 @@ import (
 	"PhantomOps/internal/version"
 )
 
+// quitAfterInstallerDelay is how long the app stays open after a Windows
+// installer has started, so the user can read why it is closing.
+const quitAfterInstallerDelay = 4 * time.Second
+
 const (
 	updateProgressEvent  = "update:progress"
 	updateAvailableEvent = "update:available"
@@ -23,6 +27,15 @@ func (a *App) initUpdater() {
 		if a.ctx != nil {
 			runtime.EventsEmit(a.ctx, updateProgressEvent, p)
 		}
+	}
+	// The Windows installer cannot overwrite a running PhantomOps, so close once
+	// it has started. This only runs after the installer started successfully.
+	a.updater.OnInstallerStarted = func() {
+		time.AfterFunc(quitAfterInstallerDelay, func() {
+			if a.ctx != nil {
+				runtime.Quit(a.ctx)
+			}
+		})
 	}
 	go a.updateLoop()
 }
