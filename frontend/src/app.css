@@ -48,7 +48,7 @@ html, body { background: var(--bg); color: var(--text); text-align: left; height
 /* ---- sidebar ---- */
 .sidebar { box-sizing: border-box; width: 232px; flex-shrink: 0; background: #0b0e14; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 12px 10px; overflow-y: auto; gap: 14px; }
 .sb-section { display: flex; flex-direction: column; gap: 2px; }
-.sb-conns { flex: 1; min-height: 0; }
+.sb-conns { flex: 1; min-height: 0; overflow-y: auto; }  /* a long connection list scrolls; Settings stays visible */
 .sb-bottom { border-top: 1px solid var(--border); padding-top: 10px; }
 .sb-heading { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); padding: 4px 10px 6px; }
 .sb-item { display: flex; align-items: center; gap: 10px; width: 100%; background: transparent; border: 0; border-radius: 7px; padding: 7px 10px; color: var(--muted); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
@@ -425,3 +425,10 @@ select option { background-color: var(--panel); color: var(--text); }
 /* Table cells: break at "/", ":" and "-", not in the middle of a number or word (the table scrolls sideways if it must). */
 .dtable .mono { word-break: normal; overflow-wrap: normal; }
 .dtable .nowrap { white-space: nowrap; }
+
+/* Keyboard users: jump past the sidebar. Hidden until it has focus. */
+.skip-link { position: fixed; left: 12px; top: -48px; z-index: 1000; padding: 8px 14px; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; text-decoration: none; transition: top .1s; }
+.skip-link:focus { top: 46px; }
+#view:focus { outline: none; }
+
+.sb-item { flex-shrink: 0; }

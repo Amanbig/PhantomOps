@@ -47,14 +47,16 @@ EventsOn('notify:open', async id => {
 });
 
 document.querySelector('#app').innerHTML = `
+    <a class="skip-link" href="#view" id="skip-link">Skip to content</a>
     ${renderTitleBar()}
     <div class="app-main">
         <nav class="sidebar" id="sidebar" aria-label="Navigation"></nav>
         <div class="app-body" id="app-body">
-            <div class="shell"><main id="view"></main></div>
+            <div class="shell"><main id="view" tabindex="-1"></main></div>
         </div>
     </div>`;
 initTitleBar();
+document.getElementById('skip-link').addEventListener('click', e => { e.preventDefault(); document.getElementById('view').focus(); });
 initSidebar(document.getElementById('sidebar'), show);
 onConnectionsChanged(refreshSidebar);
 onGotoSettings(() => show('settings'));
