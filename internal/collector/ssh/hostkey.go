@@ -116,7 +116,7 @@ func probe(ctx context.Context, cfg Config) (gossh.PublicKey, HostKeyInfo, error
 	if info.Status == HostKeyChanged && !hasType(want, key) {
 		v := &hostVerifier{want: want, offered: key, addr: cfg.Addr}
 		if retry := v.retryAlgos(); retry != nil {
-			key, info, want, err = probeOnce(ctx, cfg, path, verify, retry)
+			key, info, _, err = probeOnce(ctx, cfg, path, verify, retry)
 			if err != nil {
 				return nil, HostKeyInfo{}, v.explainNoCommonKey(err)
 			}

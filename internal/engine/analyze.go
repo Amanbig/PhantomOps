@@ -55,8 +55,6 @@ func analyze(occ []occurrence) finding {
 
 // --- event classification -------------------------------------------------
 
-func text(e model.Event) string { return strings.ToLower(e.Title + " " + e.Detail) }
-
 func hasAny(s string, subs ...string) bool {
 	for _, sub := range subs {
 		if strings.Contains(s, sub) {
