@@ -21,8 +21,8 @@ PhantomOps **v0.5.2** is a patch release. It ships with a **patched Go toolchain
 
 ### 🧪 Internal
 - Removed unused code found by `staticcheck`.
-- Tested against real services before this release: Docker, a real k3s cluster (collector, dashboard, rollback plan and execute, protected-namespace and single-revision refusals), Docker and Kubernetes through a real SSH server (event lists identical to direct connections), Nomad (collector, scan, rollback plan and execute) and the `phantom-scan` and `phantom-collect` tools.
-- **Not tested:** the Windows installer flow, macOS and Windows packages, Nomad through SSH, and passphrase-protected SSH keys.
+- Tested against real services before this release: Docker, a real k3s cluster (collector, dashboard, rollback plan and execute, protected-namespace and single-revision refusals), Docker and Kubernetes through a real SSH server (event lists identical to direct connections), Nomad (collector, scan, rollback plan and execute, and through SSH, where the event count matched a direct connection) and the `phantom-scan` and `phantom-collect` tools.
+- **Not tested:** the Windows installer flow, macOS and Windows packages, and passphrase-protected SSH keys.
 
 ---
 
