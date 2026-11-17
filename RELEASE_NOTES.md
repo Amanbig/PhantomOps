@@ -1,28 +1,34 @@
-# PhantomOps v0.5.2 👻
+# PhantomOps v0.5.3 👻
 
-PhantomOps **v0.5.2** is a patch release. It ships with a **patched Go toolchain** (the v0.5.1 builds used Go 1.25.0, which has known security fixes available), fixes **incidents that wrongly merged unrelated services**, and makes **Docker over SSH about four times faster**.
+PhantomOps **v0.5.3** is a patch release with screen and layout fixes. **Settings is now grouped into sections**, the app **no longer says "all clear" when connections failed to scan**, and several layout problems are fixed.
 
 ---
 
-### 🔒 Security
-- Release builds now use the latest Go 1.26 patch release. A scan of the v0.5.1 build found 38 known issues in Go's standard library and 2 in `golang.org/x/crypto` (two denial-of-service bugs in its SSH code). The scan of this build reports none.
-- Updated `golang.org/x/crypto` to v0.57.0 (this needs Go 1.26, which is why `go.mod` now says `go 1.26.0`).
-- Pull requests now run a **known-vulnerabilities check** (`govulncheck`), so this cannot go unnoticed again.
+### ✨ Improvements
+
+#### Settings is easier to find your way around
+- Cards are grouped under **Scanning** (Analysis, Monitoring), **Alerts** (Chat & webhooks), **Advanced** (AI investigator, Remediation) and **App** (About & updates, Support). Four buttons at the top jump to each group.
+- Analysis, the most common settings, now opens first. AI used to be first, although it is off by default.
+- A card now shows **"Not saved yet"** once you change something in it. This includes "Allow rollbacks", which does nothing until you press Save in that card.
+- Saving one card used to throw away unsaved changes in the other cards. They are now kept.
+- Card titles use line icons that match the sidebar instead of emoji.
 
 ### 🔧 Fixes
 
-#### Services that share a name prefix were merged into one incident
-- Services from the same Compose project (for example `shop-db`, `shop-api`, `shop-ok`) could end up in a single incident, and error log lines from a healthy service could be attached to a broken one. Two events are now related only when one subject's name is part of the other's, such as `api` and `api-7d9f-xk2`.
-- The recorded scenario in `dev/scenarios` produces the same output as before.
-- Known limit: a service whose only symptom is error logs still attaches to the most recent unrelated failure, not to its own incident.
+#### "All clear" shown when connections failed
+- If a scan could not read a connection (for example Docker permission denied, or Kubernetes refusing connections), Overview still showed a green check, "Nothing needs attention" and "all clear", and Incidents said "Suspiciously quiet… Phantom is watching". They now say that no incidents were found but some connections could not be read, so the result may be incomplete.
 
-### ⚡ Speed
-- **Docker over SSH** now inspects up to 6 containers at the same time. On a real host with 7 containers a scan went from **9.2 s to 2.2 s**, with the same 12 events as a direct connection.
+#### Layout
+- **Narrow window:** the "+" button to add a connection disappeared when the sidebar shrank to icons. It stays now.
+- **Short window:** the lower sidebar entries were squashed on top of "Settings". The connection list now scrolls by itself and Settings stays at the bottom.
+- **Docker dashboard:** image names and ports were broken in the middle of a word (`demo/ap i:1.4`, `8080->8 0/tcp`). They now stay on one line.
+- **Keyboard:** a "Skip to content" link is the first Tab stop, so you do not have to tab through the whole sidebar.
+
+---
 
 ### 🧪 Internal
-- Removed unused code found by `staticcheck`.
-- Tested against real services before this release: Docker, a real k3s cluster (collector, dashboard, rollback plan and execute, protected-namespace and single-revision refusals), Docker and Kubernetes through a real SSH server (event lists identical to direct connections), Nomad (collector, scan, rollback plan and execute, and through SSH, where the event count matched a direct connection) and the `phantom-scan` and `phantom-collect` tools.
-- **Not tested:** the Windows installer flow, macOS and Windows packages, and passphrase-protected SSH keys.
+- Checked with a headless browser against a stand-in backend: Settings in wide and narrow windows, the unsaved-changes marker, the jump buttons, empty and failed-scan screens, the skip link, and a basic accessibility check (button names, input labels, image alt text, focus rings).
+- **Not tested:** the real app on Windows and macOS, and real screen-reader use. No backend (Go) code changed in this release.
 
 ---
 

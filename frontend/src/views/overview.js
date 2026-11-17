@@ -136,7 +136,7 @@ export async function mountOverview(root, {openIncident, openDashboard, goToConn
                 <button class="btn" id="ov-scan" ${scanning ? 'disabled' : ''}>${scanning ? 'Scanning…' : 'Scan now'}</button></div>
 
             <div class="tiles">
-                ${tile('Open incidents', visible.length, visible.length ? `${crit} critical · ${visible.length - crit} warning` : 'all clear', crit ? 'tone-bad' : visible.length ? 'tone-warn' : 'tone-ok')}
+                ${tile('Open incidents', visible.length, visible.length ? `${crit} critical · ${visible.length - crit} warning` : failing.length ? 'none · scan incomplete' : 'all clear', crit ? 'tone-bad' : visible.length ? 'tone-warn' : failing.length ? '' : 'tone-ok')}
                 ${tile('Connections healthy', `${healthy}<span class="tile-of">/ ${enabled.length}</span>`, failing.length ? `${failing.length} failing` : scanned ? 'all reachable' : 'waiting for a scan', failing.length ? 'tone-bad' : scanned ? 'tone-ok' : '')}
                 ${tile('Resolved (24 h)', resolved.length, resolved.length ? `avg. ${dur(mttr)} to resolve` : 'none in the last day', '')}
                 ${tile('Triaged', acked, `${snoozed} snoozed · ${muted} muted`, '')}
@@ -150,7 +150,9 @@ export async function mountOverview(root, {openIncident, openDashboard, goToConn
                         <div class="ov-main"><a href="#" data-incident="${esc(i.id)}">${esc(i.title)}</a>
                             <div class="muted small">${esc(originsOf(i).join(', ') || i.environment)} · since ${ago(i.detectedAt)}${i.ackBy ? ` · <span class="ok-text">✓ ${esc(i.ackBy)}</span>` : ''}</div></div>
                     </li>`).join('')}</ul>${visible.length > 8 ? `<p class="muted small">and ${visible.length - 8} more</p>` : ''}`
-                    : `<div class="ov-clear"><div class="empty-icon">✅</div><p class="muted">${scanned ? 'Nothing needs attention right now.' : 'Run a scan to check your infrastructure.'}</p></div>`}
+                    : (failing.length
+                        ? `<div class="ov-clear"><div class="empty-icon">⚠️</div><p class="muted">No incidents found, but ${failing.length} connection${failing.length > 1 ? 's' : ''} could not be read in the last scan, so this may be incomplete.</p></div>`
+                        : `<div class="ov-clear"><div class="empty-icon">✅</div><p class="muted">${scanned ? 'Nothing needs attention right now.' : 'Run a scan to check your infrastructure.'}</p></div>`)}
                 </div>
                 <div class="panel"><div class="panel-head"><strong>Incidents, last 24 h</strong><span class="muted small">new per hour (UTC)</span></div>
                     ${barChart(hourly(history, now), [{key: 'warning', name: 'warning', color: '#f5a623'}, {key: 'critical', name: 'critical', color: '#ff4d5e'}])}

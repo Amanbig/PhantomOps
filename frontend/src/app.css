@@ -48,7 +48,7 @@ html, body { background: var(--bg); color: var(--text); text-align: left; height
 /* ---- sidebar ---- */
 .sidebar { box-sizing: border-box; width: 232px; flex-shrink: 0; background: #0b0e14; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 12px 10px; overflow-y: auto; gap: 14px; }
 .sb-section { display: flex; flex-direction: column; gap: 2px; }
-.sb-conns { flex: 1; min-height: 0; }
+.sb-conns { flex: 1; min-height: 0; overflow-y: auto; }  /* a long connection list scrolls; Settings stays visible */
 .sb-bottom { border-top: 1px solid var(--border); padding-top: 10px; }
 .sb-heading { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); padding: 4px 10px 6px; }
 .sb-item { display: flex; align-items: center; gap: 10px; width: 100%; background: transparent; border: 0; border-radius: 7px; padding: 7px 10px; color: var(--muted); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
@@ -72,6 +72,8 @@ html, body { background: var(--bg); color: var(--text); text-align: left; height
 @media (max-width: 980px) {
     .sidebar { width: 60px; padding: 12px 8px; }
     .sb-label, .sb-heading, .sb-count { display: none; }
+    /* Keep the "add a connection" button when the sidebar is icon-only. */
+    .sb-conns .sb-heading { display: flex; justify-content: center; font-size: 0; padding: 4px 0 6px; }
     .sb-item { justify-content: center; padding: 9px 0; position: relative; }
     .sb-conn .dot { position: absolute; right: 7px; top: 7px; width: 7px; height: 7px; }
     .tb-name { display: none; }
@@ -299,7 +301,7 @@ select option { background-color: var(--panel); color: var(--text); }
 .dtable tr:last-child td { border-bottom: 0; }
 .dtable tr.row-bad td:first-child { box-shadow: inset 3px 0 0 var(--critical); }
 .dtable .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.dtable .w-meter { min-width: 170px; }
+.dtable .w-meter { min-width: 120px; }
 .empty-row { text-align: center; padding: 18px; }
 .meter { height: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; margin-bottom: 3px; }
 .meter-fill { display: block; height: 100%; }
@@ -407,3 +409,26 @@ select option { background-color: var(--panel); color: var(--text); }
 .alert-text { display: block; min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
 .alert-text code { font-size: 13px; }
 .section-title { margin: 28px 0 6px; font-size: 16px; }
+
+.acc-toggle strong { display: inline-flex; align-items: center; gap: 8px; }
+.acc-icon { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.acc-dirty { display: none; margin-left: auto; flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--warning); border: 1px solid var(--warning); border-radius: 999px; padding: 1px 8px; }
+.acc.dirty .acc-dirty { display: inline-block; }
+
+.set-nav { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; position: sticky; top: 0; z-index: 2; padding: 8px 0; background: var(--bg, #0d1117); }
+.set-chip { background: transparent; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font: inherit; font-size: 12px; font-weight: 600; padding: 4px 12px; cursor: pointer; }
+.set-chip:hover { color: var(--text); border-color: var(--accent); }
+.set-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.set-group { scroll-margin-top: 48px; }
+.set-heading { margin: 18px 0 8px; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
+
+/* Table cells: break at "/", ":" and "-", not in the middle of a number or word (the table scrolls sideways if it must). */
+.dtable .mono { word-break: normal; overflow-wrap: normal; }
+.dtable .nowrap { white-space: nowrap; }
+
+/* Keyboard users: jump past the sidebar. Hidden until it has focus. */
+.skip-link { position: fixed; left: 12px; top: -48px; z-index: 1000; padding: 8px 14px; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; text-decoration: none; transition: top .1s; }
+.skip-link:focus { top: 46px; }
+#view:focus { outline: none; }
+
+.sb-item { flex-shrink: 0; }

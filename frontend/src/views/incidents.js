@@ -197,14 +197,15 @@ export async function mountIncidents(root, {goToConnections, focusId} = {}) {
                 <button class="btn" id="goto-conn">Connect services</button></div>`;
         } else {
             const all = res.incidents || [];
+            const hadErrors = Object.keys(res.errors || {}).length > 0;
             const muted = all.filter(i => i.muted);
             const snoozed = all.filter(i => !i.muted && i.snoozedUntil);
             const visible = all.filter(i => !i.muted && !i.snoozedUntil);
             content.innerHTML = renderStatus(res) + (visible.length
                 ? visible.map(renderIncident).join('')
-                : `<div class="empty"><div class="empty-icon">👻</div>
+                : `<div class="empty"><div class="empty-icon">${!all.length && hadErrors ? '⚠️' : '👻'}</div>
                    <h3>${all.length ? 'Nothing needs attention' : 'No incidents detected'}</h3>
-                   <p class="muted">${all.length ? 'Every open incident is snoozed or muted.' : 'Suspiciously quiet… Phantom is watching.'}</p></div>`)
+                   <p class="muted">${all.length ? 'Every open incident is snoozed or muted.' : hadErrors ? 'Some connections could not be read (see above), so this may be incomplete.' : 'Suspiciously quiet… Phantom is watching.'}</p></div>`)
                 + renderHidden(snoozed, muted);
         }
         content.querySelector('#goto-conn')?.addEventListener('click', goToConnections);

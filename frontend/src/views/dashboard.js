@@ -107,7 +107,7 @@ function renderDocker(s, ui) {
                 {key: 'up', label: 'Up / exit', sort: c => c.state === 'running' ? -new Date(c.startedAt) : 1e15,
                     html: c => c.state === 'running' ? since(c.startedAt) : `<span class="${c.exitCode && c.exitCode !== 143 ? 'bad-text' : 'muted'}">exit ${c.exitCode}${c.oomKilled ? ' · OOM' : ''}</span>`},
                 {key: 'image', label: 'Image', sort: c => c.image, html: c => `<span class="mono small">${esc(c.image)}</span>`},
-                {key: 'ports', label: 'Ports', html: c => (c.ports || []).length ? `<span class="mono small">${c.ports.map(esc).join('<br>')}</span>` : '<span class="muted">—</span>'},
+                {key: 'ports', label: 'Ports', html: c => (c.ports || []).length ? `<span class="mono small nowrap">${c.ports.map(esc).join('<br>')}</span>` : '<span class="muted">—</span>'},
             ], rows, ui.sort)}
         </div>`;
 }

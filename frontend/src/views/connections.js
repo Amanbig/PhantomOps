@@ -92,7 +92,7 @@ function isLocalUrl(u) {
 }
 
 let state = {hookDraft: null, hookStatus: {}, settings: null, detected: null, health: {}, form: null, error: '', aiTest: null, aiModels: [], mode: 'connections', focusId: '', scanHealth: {},
-    open: new Set(['ai']), appVersion: '', pendingUpdate: null};
+    open: new Set(['analysis']), appVersion: '', pendingUpdate: null};
 let root;
 let onChange = () => {};
 
@@ -186,11 +186,37 @@ export function scanHealth(res) {
     return out;
 }
 
+// Saving one settings card re-renders the page. Edits in the other cards that
+// are still unsaved are captured here and put back, so they are not lost.
+function snapshotDirty() {
+    const snap = {};
+    root.querySelectorAll('.acc.dirty').forEach(card => {
+        if (card.dataset.acc === state.savingCard) return;
+        snap[card.dataset.acc] = [...card.querySelectorAll('input, select, textarea')]
+            .map(el => el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value);
+    });
+    state.savingCard = '';
+    return snap;
+}
+
+function restoreDirty(snap) {
+    for (const [id, values] of Object.entries(snap)) {
+        const card = root.querySelector(`.acc[data-acc="${CSS.escape(id)}"]`);
+        const controls = card ? [...card.querySelectorAll('input, select, textarea')] : [];
+        if (controls.length !== values.length) continue; // card changed shape; use the saved values
+        controls.forEach((el, i) => {
+            if (el.type === 'checkbox' || el.type === 'radio') el.checked = values[i]; else el.value = values[i];
+        });
+        card.classList.add('dirty');
+    }
+}
+
 function render() {
     if (!state.settings) {
         root.innerHTML = `<p class="error">${esc(state.error || 'Could not load settings.')}</p>`;
         return;
     }
+    const dirtySnap = state.mode === 'settings' ? snapshotDirty() : {};
     const {config, path, saved, notes} = state.settings;
     const conns = config.connections || [];
 
@@ -198,15 +224,26 @@ function render() {
         root.innerHTML = `
             <div class="toolbar"><h2 class="view-title">Settings</h2></div>
             ${state.error ? `<div class="alert alert-bad">${esc(state.error)}</div>` : ''}
-            ${renderAI(config.ai || {})}
-            ${renderMonitoring(config.monitoring || {})}
-            ${renderWebhooks(state.hookDraft || config.webhooks || [])}
-            ${renderRemediation(config.remediation || {})}
-            ${renderGeneral(config)}
-            ${renderUpdates()}
-            ${renderSupport()}
+            <nav class="set-nav" aria-label="Settings sections">${SET_GROUPS.map(g =>
+                `<button type="button" class="set-chip" data-jump="set-${g.id}">${g.title}</button>`).join('')}</nav>
+            <section class="set-group" id="set-scanning"><h3 class="set-heading">Scanning</h3>
+                ${renderGeneral(config)}
+                ${renderMonitoring(config.monitoring || {})}
+            </section>
+            <section class="set-group" id="set-alerts"><h3 class="set-heading">Alerts</h3>
+                ${renderWebhooks(state.hookDraft || config.webhooks || [])}
+            </section>
+            <section class="set-group" id="set-advanced"><h3 class="set-heading">Advanced</h3>
+                ${renderAI(config.ai || {})}
+                ${renderRemediation(config.remediation || {})}
+            </section>
+            <section class="set-group" id="set-app"><h3 class="set-heading">App</h3>
+                ${renderUpdates()}
+                ${renderSupport()}
+            </section>
             <p class="muted small">Config file: <code>${esc(path)}</code></p>`;
         bind();
+        restoreDirty(dirtySnap);
         return;
     }
 
@@ -270,6 +307,20 @@ function renderDetected(existing) {
         </div>`;
 }
 
+const SET_GROUPS = [{id: 'scanning', title: 'Scanning'}, {id: 'alerts', title: 'Alerts'}, {id: 'advanced', title: 'Advanced'}, {id: 'app', title: 'App'}];
+
+// Line icons for the settings cards (same style as the sidebar).
+const svg = d => `<svg class="acc-icon" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const ACC_ICON = {
+    ai: svg('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/><path d="M19 17l.7 1.8L21.5 19.5l-1.8.7L19 22l-.7-1.8-1.8-.7 1.8-.7L19 17z"/>'),
+    monitoring: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/>'),
+    webhooks: svg('<path d="M4 5h16v11H9l-5 4V5z"/>'),
+    remediation: svg('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>'),
+    analysis: svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'),
+    updates: svg('<path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/>'),
+    support: svg('<path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/>'),
+};
+
 // acc renders a collapsible settings card. The header toggles it; headExtra
 // (e.g. an "Enabled" switch) sits next to the toggle so it works while collapsed.
 function acc(id, title, summaryText, headExtra, body, panelId = '') {
@@ -278,8 +329,9 @@ function acc(id, title, summaryText, headExtra, body, panelId = '') {
         <div class="acc-head">
             <button type="button" class="acc-toggle" data-acc-toggle="${id}" aria-expanded="${open}" aria-controls="acc-body-${id}">
                 <span class="acc-chevron" aria-hidden="true"></span>
-                <strong>${title}</strong>
+                <strong>${ACC_ICON[id] || ''}${title}</strong>
                 <span class="acc-summary">${esc(summaryText)}</span>
+                <span class="acc-dirty" aria-live="polite">Not saved yet</span>
             </button>${headExtra || ''}
         </div>
         <div class="acc-body" id="acc-body-${id}"${open ? '' : ' hidden'}>${body}</div>
@@ -311,7 +363,7 @@ function renderAI(ai) {
             <button class="btn btn-small btn-secondary" id="ai-test">Test &amp; load models</button>
             <button class="btn btn-small" id="ai-save">Save AI settings</button>
         </div>`;
-    return acc('ai', '🤖 AI investigator', summaryText,
+    return acc('ai', 'AI investigator', summaryText,
         `<label class="check acc-switch"><input type="checkbox" id="ai-enabled" ${ai.enabled ? 'checked' : ''}> Enabled</label>`, body, 'ai-panel');
 }
 
@@ -332,7 +384,7 @@ function renderMonitoring(m) {
             <button class="btn btn-small btn-secondary" id="mon-test">Send test notification</button>
             <button class="btn btn-small" id="mon-save">Save monitoring</button>
         </div>`;
-    return acc('monitoring', '⏱ Monitoring', summaryText,
+    return acc('monitoring', 'Monitoring', summaryText,
         `<label class="check acc-switch"><input type="checkbox" id="mon-enabled" ${m.enabled ? 'checked' : ''}> Scan in the background</label>`, body, 'mon-panel');
 }
 
@@ -373,7 +425,7 @@ function renderWebhooks(list) {
             <button class="btn btn-small btn-secondary" id="hook-add">Add channel</button>
             <button class="btn btn-small" id="hook-save">Save channels</button>
         </div>`;
-    return acc('webhooks', '💬 Chat &amp; webhooks', summaryText, '', body, 'hooks-panel');
+    return acc('webhooks', 'Chat &amp; webhooks', summaryText, '', body, 'hooks-panel');
 }
 
 // readHooks collects the channel rows from the form.
@@ -389,7 +441,7 @@ function renderRemediation(rem) {
     const body = `
         <p class="muted small" style="margin:0 0 8px">When on, an incident that points at a bad Kubernetes or Nomad deployment can be rolled back to its previous revision. Every rollback shows a preview of exactly what changes, needs you to type the workload name, and is recorded on the Activity tab. Never runs automatically. Off by default.</p>
         <button class="btn btn-small" id="rem-save">Save</button>`;
-    return acc('remediation', '🛠 Remediation', rem.enabled ? 'Rollbacks allowed (with confirmation)' : 'Off',
+    return acc('remediation', 'Remediation', rem.enabled ? 'Rollbacks allowed (with confirmation)' : 'Off',
         `<label class="check acc-switch"><input type="checkbox" id="rem-enabled" ${rem.enabled ? 'checked' : ''}> Allow rollbacks</label>`, body, 'rem-panel');
 }
 
@@ -404,14 +456,14 @@ function renderGeneral(config) {
                 <input id="g-ignore" value="${esc((config.ignoreSubjects || []).join(', '))}" placeholder="monitoring, cadvisor"></label>
         </div>
         <button class="btn btn-small" id="save-general">Save settings</button>`;
-    return acc('analysis', '🔎 Analysis settings', summaryText, '', body, 'analysis-panel');
+    return acc('analysis', 'Analysis settings', summaryText, '', body, 'analysis-panel');
 }
 
 // The Updates card's contents are drawn by views/updates.js into #updates-panel.
 function renderUpdates() {
     const v = state.appVersion === 'dev' ? 'development build' : state.appVersion;
     const pend = state.pendingUpdate && state.pendingUpdate.available ? ` · ${state.pendingUpdate.latestVersion} available` : '';
-    return acc('updates', '🔄 About &amp; updates', `${v ? 'PhantomOps ' + v : 'PhantomOps'}${pend}`, '', '<div id="updates-panel"></div>', 'updates-card');
+    return acc('updates', 'About &amp; updates', `${v ? 'PhantomOps ' + v : 'PhantomOps'}${pend}`, '', '<div id="updates-panel"></div>', 'updates-card');
 }
 
 function renderForm() {
@@ -531,6 +583,19 @@ function bind() {
         btn.setAttribute('aria-expanded', String(open));
         body.hidden = !open;
     }));
+    root.querySelectorAll('[data-jump]').forEach(b => b.addEventListener('click', () =>
+        document.getElementById(b.dataset.jump)?.scrollIntoView({behavior: 'smooth', block: 'start'})));
+    // Mark a card "Not saved yet" once something in it changes, if it has a Save button.
+    root.querySelectorAll('.acc').forEach(card => {
+        if (!card.querySelector('.acc-body [id$="-save"], #save-general')) return;
+        const mark = () => card.classList.add('dirty');
+        card.addEventListener('input', mark);
+        card.addEventListener('change', mark);
+        // The card being saved is rebuilt from the saved config; the others keep their edits.
+        card.addEventListener('click', e => {
+            if (e.target.closest('[id$="-save"], #save-general')) state.savingCard = card.dataset.acc;
+        }, true); // capture: must run before the button's own (async) save handler
+    });
     $('#goto-settings')?.addEventListener('click', e => { e.preventDefault(); gotoSettings(); });
     const up = $('#updates-panel');
     if (up) mountUpdates(up);
@@ -744,17 +809,17 @@ function renderSupport() {
             <li>${link(base + '/blob/main/CONTRIBUTING.md', 'Contribute')}</li>
             <li>${link(base + '/blob/main/SECURITY.md', 'Report a security issue')}</li>
         </ul>`;
-    return acc('support', '♥ Support &amp; community', 'Sponsor · issues · contribute', '', body, 'support-card');
+    return acc('support', 'Support &amp; community', 'Sponsor · issues · contribute', '', body, 'support-card');
 }
 
 function closeForm() { state.form = null; render(); }
 
 // mountSettings shows AI, monitoring, remediation, analysis and update settings
-// as collapsible cards. Each visit starts with only the top card open (or the
+// as collapsible cards in four groups. Each visit starts with only Analysis open (or the
 // one named by `open`, e.g. 'updates' when coming from the update badge).
 export async function mountSettings(el, {open = ''} = {}) {
     state.mode = 'settings';
-    state.open = new Set([open || 'ai']);
+    state.open = new Set([open || 'analysis']);
     state.form = null;
     root = el;
     root.innerHTML = '<p class="muted">Loading…</p>';
