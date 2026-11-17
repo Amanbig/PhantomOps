@@ -55,8 +55,6 @@ func analyze(occ []occurrence) finding {
 
 // --- event classification -------------------------------------------------
 
-func text(e model.Event) string { return strings.ToLower(e.Title + " " + e.Detail) }
-
 func hasAny(s string, subs ...string) bool {
 	for _, sub := range subs {
 		if strings.Contains(s, sub) {
@@ -123,24 +121,59 @@ var stopTokens = map[string]bool{
 	"the": true, "svc": true, "pod": true, "task": true, "job": true,
 }
 
+var nonWord = regexp.MustCompile(`[^a-z0-9]+`)
+
+// tokens splits a subject into its identifying words. Pure numbers are
+// dropped (replica indexes such as the 1 in "shop-api-1", host numbers, ports)
+// but short words are kept: "db", "ui" and "mq" are real service names, and
+// dropping them left only the project prefix, which matched every sibling.
 func tokens(subject string) map[string]bool {
 	out := map[string]bool{}
-	for _, t := range regexp.MustCompile(`[^a-z0-9]+`).Split(strings.ToLower(subject), -1) {
-		if len(t) >= 3 && !stopTokens[t] {
+	for _, t := range nonWord.Split(strings.ToLower(subject), -1) {
+		if len(t) >= 2 && !isNumber(t) && !stopTokens[t] {
 			out[t] = true
 		}
 	}
 	return out
 }
 
-func related(a, b string) bool {
-	ta, tb := tokens(a), tokens(b)
-	for t := range ta {
-		if tb[t] {
-			return true
+func isNumber(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
 		}
 	}
-	return false
+	return s != ""
+}
+
+// serviceTokens are the identifying words of the service a subject belongs to:
+// the namespace and a Kubernetes pod's hash suffix are removed first, so every
+// pod of one Deployment has the same words.
+func serviceTokens(subject string) map[string]bool { return tokens(shortName(subject)) }
+
+// related reports whether two subjects belong to the same service or to a
+// service named after it: one's words must all appear in the other's
+// ("api" and "leaky-api", a Deployment and its pods).
+//
+// Merely sharing a word is not enough. Docker Compose names every container
+// "<project>-<service>-1", so "shop-api-1" and "shop-db-1" share "shop" but are
+// different services. Treating them as related merged every failing service of
+// a Compose project into one incident and mixed their evidence together.
+func related(a, b string) bool {
+	ta, tb := serviceTokens(a), serviceTokens(b)
+	if len(ta) == 0 || len(tb) == 0 {
+		return false
+	}
+	return subset(ta, tb) || subset(tb, ta)
+}
+
+func subset(small, big map[string]bool) bool {
+	for t := range small {
+		if !big[t] {
+			return false
+		}
+	}
+	return true
 }
 
 var podSuffix = regexp.MustCompile(`-[a-z0-9]{8,10}-[a-z0-9]{5}$`)

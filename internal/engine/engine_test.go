@@ -381,8 +381,22 @@ func TestShortNameAndRelated(t *testing.T) {
 		{"default/api", "api-5994c75874-cb4vm", true},
 		{"default/api", "default/db", false}, // "default" is a stop word
 		{"kube-system/coredns", "kube-system/proxy", false},
-		{"ab", "ab", false}, // tokens shorter than 3 characters are ignored
+		{"ab", "ab", true}, // short words are real names ("db", "ui", "mq")
+		{"a", "a", false},  // single characters carry no meaning
 		{"leaky-api", "api", true},
+		// Docker Compose names every container <project>-<service>-<index>.
+		// Sharing the project word must not make two services "related".
+		{"shop-api-1", "shop-db-1", false},
+		{"shop-api-1", "shop-ui-1", false},
+		{"shop-api-1", "shop-api-2", true},   // two replicas of one service
+		{"shop-api-10", "shop-api-11", true}, // numbers never identify a service
+		{"web-01", "web-02", true},
+		// A Deployment and its pods, and two pods of one Deployment.
+		{"default/api", "api-5994c75874-cb4vm", true},
+		{"api-5994c75874-cb4vm", "api-5994c75874-zz9aa", true},
+		{"prod/leaky-api-5994c75874-cb4vm", "leaky-api", true},
+		{"", "api", false},
+		{"123", "456", false}, // nothing but numbers
 	}
 	for _, c := range rel {
 		if got := related(c.a, c.b); got != c.want {
@@ -449,5 +463,114 @@ func TestQuietScanReturnsEmptyListsNotNull(t *testing.T) {
 	res := e.Scan(context.Background())
 	if res.Incidents == nil || res.Warnings == nil || len(res.Incidents) != 0 {
 		t.Errorf("incidents=%#v warnings=%#v", res.Incidents, res.Warnings)
+	}
+}
+
+// --- services that share a name prefix (Docker Compose projects) ----------------
+
+// composeEvent builds a failure for the compose service "<project>-<name>-1".
+func composeFailure(min float64, project, name, title string, kind model.Kind) model.Event {
+	return ev(min, model.SourceDocker, kind, model.SeverityCritical, title, name+" failed", project+"-"+name+"-1")
+}
+
+// The bug this guards against was found by running PhantomOps against real
+// containers: every failing service of a Compose project was merged into one
+// incident, and one service was credited with another's log lines.
+func TestFailingServicesOfOneComposeProjectAreSeparateIncidents(t *testing.T) {
+	events := []model.Event{
+		composeFailure(0, "shop", "api", "OOMKilled", model.KindResource),
+		composeFailure(0, "shop", "db", "Container crashed", model.KindDegraded),
+		composeFailure(1, "shop", "ui", "Healthcheck failing", model.KindDegraded),
+		composeFailure(1, "shop", "cache", "Container crashed", model.KindDegraded),
+	}
+	incs, _ := newEngine().Analyze(events)
+	if len(incs) != 4 {
+		t.Fatalf("got %d incidents %v, want 4: different services must not be merged because they share the project name", len(incs), titles(incs))
+	}
+	for _, inc := range incs {
+		subjects := map[string]bool{}
+		for _, e := range inc.Timeline {
+			subjects[e.Subject] = true
+		}
+		if len(subjects) != 1 {
+			t.Errorf("incident %q mixes services: %v", inc.Title, subjects)
+		}
+	}
+}
+
+func TestAServiceWithAShortNameDoesNotGlueItsSiblingsTogether(t *testing.T) {
+	// "shop-db-1" is just {db, shop}; before short words were kept it reduced to
+	// {shop}, which is "contained in" every sibling and bridged them all.
+	for _, short := range []string{"db", "ui", "mq", "ok"} {
+		events := []model.Event{
+			ev(0, model.SourceDocker, model.KindDeployment, model.SeverityInfo, "Container started", "", "shop-"+short+"-1"),
+			composeFailure(0, "shop", "api", "OOMKilled", model.KindResource),
+			composeFailure(1, "shop", "worker", "Container crashed", model.KindDegraded),
+		}
+		incs, _ := newEngine().Analyze(events)
+		if len(incs) != 2 {
+			t.Errorf("short service %q: got %d incidents %v, want 2", short, len(incs), titles(incs))
+		}
+	}
+}
+
+func TestEvidenceIsNeverBorrowedFromAnotherService(t *testing.T) {
+	events := []model.Event{
+		ev(0, model.SourceDocker, model.KindDegraded, model.SeverityCritical, "Healthcheck failing", "probe failed", "shop-cache-1"),
+		ev(1, model.SourceDocker, model.KindLog, model.SeverityWarning, "40 error log line(s)", "ERROR database timeout", "shop-db-1"),
+	}
+	for _, inc := range mustAnalyze(t, events) {
+		if strings.Contains(inc.Title, "cache") {
+			for _, r := range inc.Investigation.Reasoning {
+				if strings.Contains(r, "database timeout") {
+					t.Errorf("the cache incident cites the database's log lines: %q", r)
+				}
+			}
+			if strings.Contains(inc.Investigation.RootCause, "database") {
+				t.Errorf("root cause mentions another service: %q", inc.Investigation.RootCause)
+			}
+		}
+	}
+}
+
+func mustAnalyze(t *testing.T, events []model.Event) []model.Incident {
+	t.Helper()
+	incs, _ := newEngine().Analyze(events)
+	if len(incs) == 0 {
+		t.Fatal("no incidents")
+	}
+	return incs
+}
+
+func TestReplicasAndPodsOfOneServiceStayOneIncident(t *testing.T) {
+	cases := map[string][]string{
+		"compose replicas":       {"shop-api-1", "shop-api-2", "shop-api-10"},
+		"two pods, one rollout":  {"default/leaky-api-5994c75874-cb4vm", "default/leaky-api-5994c75874-zz9aa"},
+		"deployment and its pod": {"default/leaky-api", "default/leaky-api-5994c75874-cb4vm"},
+		"numbered hosts":         {"web-01", "web-02"},
+	}
+	for name, subjects := range cases {
+		var events []model.Event
+		for i, sub := range subjects {
+			events = append(events, ev(float64(i), model.SourceDocker, model.KindResource, model.SeverityCritical, "OOMKilled", "", sub))
+		}
+		incs, _ := newEngine().Analyze(events)
+		if len(incs) != 1 {
+			t.Errorf("%s: got %d incidents %v, want 1", name, len(incs), titles(incs))
+		}
+	}
+}
+
+func TestACrossServiceChainStillStaysTogether(t *testing.T) {
+	// The documented case: a service leaks memory and the proxy in front of it
+	// starts returning 502. They are different services and are not related by
+	// name; the proxy symptom joins the failure that came just before it.
+	events := []model.Event{
+		ev(0, model.SourceDocker, model.KindResource, model.SeverityCritical, "OOMKilled", "", "shop-api-1"),
+		ev(1, model.SourceDocker, model.KindDegraded, model.SeverityWarning, "Upstream 5xx", "502", "shop-proxy-1"),
+	}
+	incs, _ := newEngine().Analyze(events)
+	if len(incs) != 1 || len(incs[0].Timeline) != 2 {
+		t.Errorf("got %v, want one incident holding both events", titles(incs))
 	}
 }

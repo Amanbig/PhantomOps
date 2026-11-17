@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"PhantomOps/internal/model"
@@ -38,6 +39,9 @@ func New(socket string) *Collector {
 // Name implements collector.Collector.
 func (c *Collector) Name() string { return "docker" }
 
+// maxParallel bounds concurrent per-container requests.
+const maxParallel = 6
+
 // Collect implements collector.Collector. It inspects every container and
 // emits events for starts, restarts, OOM kills, crashes, unhealthy checks,
 // high memory and error-looking log lines.
@@ -47,21 +51,40 @@ func (c *Collector) Collect(ctx context.Context, since time.Time) ([]model.Event
 		return nil, fmt.Errorf("list containers: %w", err)
 	}
 
+	// Containers are independent, so collect them concurrently. Over SSH each
+	// call is a remote command (docker stats alone takes ~1s), so a serial loop
+	// made large hosts very slow. Results are kept in list order.
+	results := make([][]model.Event, len(list))
+	sem := make(chan struct{}, maxParallel)
+	var wg sync.WaitGroup
+	for i, s := range list {
+		wg.Add(1)
+		go func(i int, s containerSummary) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+			evs, err := c.collectContainer(ctx, s.ID, since)
+			if err != nil {
+				// One broken container must not hide the others.
+				evs = []model.Event{{
+					Time: c.now(), Source: model.SourceDocker, Kind: model.KindOther,
+					Severity: model.SeverityWarning, Subject: firstName(s),
+					Title: "Collection failed", Detail: err.Error(),
+				}}
+			}
+			results[i] = evs
+		}(i, s)
+	}
+	wg.Wait()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var events []model.Event
-	for _, s := range list {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		evs, err := c.collectContainer(ctx, s.ID, since)
-		if err != nil {
-			// One broken container must not hide the others.
-			events = append(events, model.Event{
-				Time: c.now(), Source: model.SourceDocker, Kind: model.KindOther,
-				Severity: model.SeverityWarning, Subject: firstName(s),
-				Title: "Collection failed", Detail: err.Error(),
-			})
-			continue
-		}
+	for _, evs := range results {
 		events = append(events, evs...)
 	}
 	sort.SliceStable(events, func(i, j int) bool { return events[i].Time.Before(events[j].Time) })

@@ -1,22 +1,28 @@
-# PhantomOps v0.5.1 👻
+# PhantomOps v0.5.2 👻
 
-PhantomOps **v0.5.1** is a patch release. It fixes a **false "host key changed" warning** that stopped SSH connections to many ordinary servers, and **in-app updates on Windows** that failed with a permission error.
+PhantomOps **v0.5.2** is a patch release. It ships with a **patched Go toolchain** (the v0.5.1 builds used Go 1.25.0, which has known security fixes available), fixes **incidents that wrongly merged unrelated services**, and makes **Docker over SSH about four times faster**.
 
 ---
+
+### 🔒 Security
+- Release builds now use the latest Go 1.26 patch release. A scan of the v0.5.1 build found 38 known issues in Go's standard library and 2 in `golang.org/x/crypto` (two denial-of-service bugs in its SSH code). The scan of this build reports none.
+- Updated `golang.org/x/crypto` to v0.57.0 (this needs Go 1.26, which is why `go.mod` now says `go 1.26.0`).
+- Pull requests now run a **known-vulnerabilities check** (`govulncheck`), so this cannot go unnoticed again.
 
 ### 🔧 Fixes
 
-#### Windows: updating from the installer failed with a permission error
-- If you installed PhantomOps with the Windows installer and used the in-app update, the download finished but the installer never started. There was no Yes/No permission prompt, only an error saying it needs elevated privileges. The installer installs into Program Files, so it needs administrator rights, and the updater started it in a way that cannot ask for them.
-- It now starts the installer the way Windows expects, so the usual permission prompt appears. If you answer No, or this account may not install programs, PhantomOps says that the installer was not started, instead of showing a Windows error code. PhantomOps stays open in that case.
-- Once the installer has started, PhantomOps **closes itself after a few seconds**, because Windows will not let an installer replace a program that is running. When the installer finishes, start PhantomOps again from the Start menu or the desktop shortcut. (The "Restart now" button is not shown in this case, since it would reopen the old version.)
+#### Services that share a name prefix were merged into one incident
+- Services from the same Compose project (for example `shop-db`, `shop-api`, `shop-ok`) could end up in a single incident, and error log lines from a healthy service could be attached to a broken one. Two events are now related only when one subject's name is part of the other's, such as `api` and `api-7d9f-xk2`.
+- The recorded scenario in `dev/scenarios` produces the same output as before.
+- Known limit: a service whose only symptom is error logs still attaches to the most recent unrelated failure, not to its own incident.
 
----
+### ⚡ Speed
+- **Docker over SSH** now inspects up to 6 containers at the same time. On a real host with 7 containers a scan went from **9.2 s to 2.2 s**, with the same 12 events as a direct connection.
 
 ### 🧪 Internal
-- The test SSH server can now offer several host key types, like a real server. New tests cover each known key type, an unknown server, a changed key while other types are offered, and the number of handshakes needed.
-- I tested v0.5.0 against a real OpenSSH server, a real Prometheus and a real Loki before this release.
-- New tests for how the updater starts the installer, how each Windows result is reported, and when PhantomOps closes itself (only after the installer started, and never for other update types). The Windows launch itself was not run on Windows for this release.
+- Removed unused code found by `staticcheck`.
+- Tested against real services before this release: Docker, a real k3s cluster (collector, dashboard, rollback plan and execute, protected-namespace and single-revision refusals), Docker and Kubernetes through a real SSH server (event lists identical to direct connections), Nomad (collector, scan, rollback plan and execute, and through SSH, where the event count matched a direct connection) and the `phantom-scan` and `phantom-collect` tools.
+- **Not tested:** the Windows installer flow, macOS and Windows packages, and passphrase-protected SSH keys.
 
 ---
 

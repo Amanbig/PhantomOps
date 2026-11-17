@@ -634,11 +634,6 @@ func (c *Config) RestoreSecrets(old Config) {
 	}
 }
 
-func fileExists(p string) bool {
-	_, err := os.Stat(p)
-	return err == nil
-}
-
 func onPath(bin string) bool {
 	_, err := exec.LookPath(bin)
 	return err == nil

@@ -27,8 +27,7 @@ func splitByService(events []model.Event) [][]model.Event {
 	for i := range parent {
 		parent[i] = i
 	}
-	var find func(int) int
-	find = func(x int) int {
+	find := func(x int) int {
 		for parent[x] != x {
 			parent[x] = parent[parent[x]]
 			x = parent[x]
