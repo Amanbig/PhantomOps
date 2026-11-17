@@ -92,7 +92,7 @@ function isLocalUrl(u) {
 }
 
 let state = {hookDraft: null, hookStatus: {}, settings: null, detected: null, health: {}, form: null, error: '', aiTest: null, aiModels: [], mode: 'connections', focusId: '', scanHealth: {},
-    open: new Set(['ai']), appVersion: '', pendingUpdate: null};
+    open: new Set(['analysis']), appVersion: '', pendingUpdate: null};
 let root;
 let onChange = () => {};
 
@@ -224,13 +224,23 @@ function render() {
         root.innerHTML = `
             <div class="toolbar"><h2 class="view-title">Settings</h2></div>
             ${state.error ? `<div class="alert alert-bad">${esc(state.error)}</div>` : ''}
-            ${renderAI(config.ai || {})}
-            ${renderMonitoring(config.monitoring || {})}
-            ${renderWebhooks(state.hookDraft || config.webhooks || [])}
-            ${renderRemediation(config.remediation || {})}
-            ${renderGeneral(config)}
-            ${renderUpdates()}
-            ${renderSupport()}
+            <nav class="set-nav" aria-label="Settings sections">${SET_GROUPS.map(g =>
+                `<button type="button" class="set-chip" data-jump="set-${g.id}">${g.title}</button>`).join('')}</nav>
+            <section class="set-group" id="set-scanning"><h3 class="set-heading">Scanning</h3>
+                ${renderGeneral(config)}
+                ${renderMonitoring(config.monitoring || {})}
+            </section>
+            <section class="set-group" id="set-alerts"><h3 class="set-heading">Alerts</h3>
+                ${renderWebhooks(state.hookDraft || config.webhooks || [])}
+            </section>
+            <section class="set-group" id="set-advanced"><h3 class="set-heading">Advanced</h3>
+                ${renderAI(config.ai || {})}
+                ${renderRemediation(config.remediation || {})}
+            </section>
+            <section class="set-group" id="set-app"><h3 class="set-heading">App</h3>
+                ${renderUpdates()}
+                ${renderSupport()}
+            </section>
             <p class="muted small">Config file: <code>${esc(path)}</code></p>`;
         bind();
         restoreDirty(dirtySnap);
@@ -296,6 +306,8 @@ function renderDetected(existing) {
         : '<p class="muted">Nothing new found. Everything detected is already connected.</p>'}
         </div>`;
 }
+
+const SET_GROUPS = [{id: 'scanning', title: 'Scanning'}, {id: 'alerts', title: 'Alerts'}, {id: 'advanced', title: 'Advanced'}, {id: 'app', title: 'App'}];
 
 // Line icons for the settings cards (same style as the sidebar).
 const svg = d => `<svg class="acc-icon" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
@@ -571,6 +583,8 @@ function bind() {
         btn.setAttribute('aria-expanded', String(open));
         body.hidden = !open;
     }));
+    root.querySelectorAll('[data-jump]').forEach(b => b.addEventListener('click', () =>
+        document.getElementById(b.dataset.jump)?.scrollIntoView({behavior: 'smooth', block: 'start'})));
     // Mark a card "Not saved yet" once something in it changes, if it has a Save button.
     root.querySelectorAll('.acc').forEach(card => {
         if (!card.querySelector('.acc-body [id$="-save"], #save-general')) return;
@@ -801,11 +815,11 @@ function renderSupport() {
 function closeForm() { state.form = null; render(); }
 
 // mountSettings shows AI, monitoring, remediation, analysis and update settings
-// as collapsible cards. Each visit starts with only the top card open (or the
+// as collapsible cards in four groups. Each visit starts with only Analysis open (or the
 // one named by `open`, e.g. 'updates' when coming from the update badge).
 export async function mountSettings(el, {open = ''} = {}) {
     state.mode = 'settings';
-    state.open = new Set([open || 'ai']);
+    state.open = new Set([open || 'analysis']);
     state.form = null;
     root = el;
     root.innerHTML = '<p class="muted">Loading…</p>';
