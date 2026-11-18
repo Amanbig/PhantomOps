@@ -76,6 +76,7 @@ type Connection struct {
 	Addr          string `json:"addr"` // ssh host[:port]
 	User          string `json:"user"`
 	KeyPath       string `json:"keyPath"`
+	Passphrase    string `json:"passphrase"` // ssh: passphrase of an encrypted key (secret)
 	KnownHosts    string `json:"knownHosts"`
 	Insecure      bool   `json:"insecure"`
 	ExpectedPorts []int  `json:"expectedPorts"`
@@ -462,7 +463,7 @@ func runsThroughSSH(cn Connection) bool {
 func (c Config) sshHost(cn Connection) (sshc.Config, error) {
 	for _, h := range c.Connections {
 		if h.ID == cn.SSHConnection && h.Type == TypeSSH {
-			return sshc.Config{Addr: h.Addr, User: h.User, KeyPath: h.KeyPath,
+			return sshc.Config{Addr: h.Addr, User: h.User, KeyPath: h.KeyPath, Passphrase: h.Passphrase,
 				KnownHosts: h.KnownHosts, Insecure: h.Insecure}, nil
 		}
 	}
@@ -525,7 +526,7 @@ func (cn Connection) Collector() (collector.Collector, error) {
 	case TypeNomad:
 		return nomad.New(cn.URL, cn.Token), nil
 	case TypeSSH:
-		return sshc.New(sshc.Config{Addr: cn.Addr, User: cn.User, KeyPath: cn.KeyPath,
+		return sshc.New(sshc.Config{Addr: cn.Addr, User: cn.User, KeyPath: cn.KeyPath, Passphrase: cn.Passphrase,
 			KnownHosts: cn.KnownHosts, Insecure: cn.Insecure, ExpectedPorts: cn.ExpectedPorts})
 	}
 	return nil, fmt.Errorf("unknown connection type %q", cn.Type)
@@ -587,6 +588,9 @@ func (c Config) Redacted() Config {
 		if out.Connections[i].Token != "" {
 			out.Connections[i].Token = SecretMask
 		}
+		if out.Connections[i].Passphrase != "" {
+			out.Connections[i].Passphrase = SecretMask
+		}
 	}
 	if out.AI.APIKey != "" {
 		out.AI.APIKey = SecretMask
@@ -621,13 +625,24 @@ func (c *Config) RestoreSecrets(old Config) {
 	}
 	for i := range c.Connections {
 		cn := &c.Connections[i]
-		if cn.Token != SecretMask {
+		if cn.Token != SecretMask && cn.Passphrase != SecretMask {
 			continue
 		}
-		cn.Token = ""
+		tokenMasked, passMasked := cn.Token == SecretMask, cn.Passphrase == SecretMask
+		if tokenMasked {
+			cn.Token = ""
+		}
+		if passMasked {
+			cn.Passphrase = ""
+		}
 		for _, o := range old.Connections {
 			if o.ID == cn.ID {
-				cn.Token = o.Token
+				if tokenMasked {
+					cn.Token = o.Token
+				}
+				if passMasked {
+					cn.Passphrase = o.Passphrase
+				}
 				break
 			}
 		}

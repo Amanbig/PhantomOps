@@ -92,6 +92,16 @@ func (r *remoteAPI) get(ctx context.Context, path string, q url.Values) ([]byte,
 	if strings.HasSuffix(path, "/stats") {
 		return normalizeRemoteStats(out)
 	}
+	if strings.HasSuffix(path, "/logs") {
+		// `docker logs` replays the container's stdout on its own stdout and the
+		// container's stderr on its own stderr. Most programs log errors to
+		// stderr, so keep both (the lines are only pattern-matched, so the
+		// order between the two streams does not matter).
+		if out != "" && errOut != "" && !strings.HasSuffix(out, "\n") {
+			out += "\n"
+		}
+		return []byte(out + errOut), nil
+	}
 	return []byte(out), nil
 }
 

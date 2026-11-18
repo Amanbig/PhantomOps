@@ -66,7 +66,9 @@ const TYPES = {
             {key: 'addr', label: 'Host', placeholder: 'web-01.example.com:22', required: true},
             {key: 'user', label: 'User', placeholder: 'ops', required: true},
             {key: 'keyPath', label: 'Private key path', placeholder: '(empty = use ssh-agent)',
-                help: 'Unencrypted key file. Passphrase-protected keys: use ssh-agent.'},
+                help: 'Path to a private key file. Leave empty to use ssh-agent.'},
+            {key: 'passphrase', label: 'Key passphrase', type: 'password', placeholder: '(only if the key is encrypted)',
+                help: 'Stored locally in the config file (owner-only permissions) and never shown again. Or leave the key path empty and add the key to ssh-agent.'},
             {key: 'knownHosts', label: 'known_hosts file', placeholder: '~/.ssh/known_hosts'},
             {key: 'expectedPorts', label: 'Expected open ports', placeholder: '80, 443',
                 help: 'Comma-separated TCP ports that should be listening.'},
@@ -569,7 +571,7 @@ function readForm() {
 function blankConn(type) {
     const t = TYPES[type];
     return {id: '', type, name: t.label, enabled: true, socket: '', sshConnection: '', remoteSocket: '', remoteKubeconfig: '', context: '', kubeconfig: '', url: '', query: '', token: '',
-        addr: '', user: '', keyPath: '', knownHosts: '', insecure: false, expectedPorts: []};
+        addr: '', user: '', keyPath: '', passphrase: '', knownHosts: '', insecure: false, expectedPorts: []};
 }
 
 function bind() {

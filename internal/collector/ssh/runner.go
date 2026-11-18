@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net"
@@ -57,7 +58,10 @@ func Shared(cfg Config) (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := fmt.Sprintf("%s|%s|%s|%s|%t", cfg.Addr, cfg.User, cfg.KeyPath, cfg.KnownHosts, cfg.Insecure)
+	// The passphrase is part of the identity (a changed passphrase must not
+	// reuse a connection opened with another), but only as a hash.
+	pp := sha256.Sum256([]byte(cfg.Passphrase))
+	key := fmt.Sprintf("%s|%s|%s|%x|%s|%t", cfg.Addr, cfg.User, cfg.KeyPath, pp[:6], cfg.KnownHosts, cfg.Insecure)
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	if h := registry[key]; h != nil {

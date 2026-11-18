@@ -1,34 +1,33 @@
-# PhantomOps v0.5.3 👻
+# PhantomOps v0.5.4 👻
 
-PhantomOps **v0.5.3** is a patch release with screen and layout fixes. **Settings is now grouped into sections**, the app **no longer says "all clear" when connections failed to scan**, and several layout problems are fixed.
+PhantomOps **v0.5.4** is a patch release. SSH connections now work with **passphrase-protected private keys**, and **Docker over SSH no longer misses error logs** that containers write to stderr.
 
 ---
 
-### ✨ Improvements
+### ✨ New
 
-#### Settings is easier to find your way around
-- Cards are grouped under **Scanning** (Analysis, Monitoring), **Alerts** (Chat & webhooks), **Advanced** (AI investigator, Remediation) and **App** (About & updates, Support). Four buttons at the top jump to each group.
-- Analysis, the most common settings, now opens first. AI used to be first, although it is off by default.
-- A card now shows **"Not saved yet"** once you change something in it. This includes "Allow rollbacks", which does nothing until you press Save in that card.
-- Saving one card used to throw away unsaved changes in the other cards. They are now kept.
-- Card titles use line icons that match the sidebar instead of emoji.
+#### Passphrase-protected SSH keys
+- An SSH connection has a new **Key passphrase** field. Before this, an encrypted key failed with a vague message, and the only way out was ssh-agent.
+- Works with ed25519, ECDSA and RSA keys, in both the new OpenSSH format and the older PEM format.
+- The passphrase is stored in the config file, which is readable only by you (0600), the same way Nomad tokens and AI keys are. It is shown as `********` in the app, and saving a connection without retyping it keeps the stored one. If you would rather not store it, leave the key path empty and add the key to ssh-agent.
+- Clear errors: "the key is protected by a passphrase" when it is missing, and "the passphrase for key ... is wrong" when it does not fit. Errors never include the passphrase.
+- Every connection type that runs through SSH (Docker, Kubernetes, Nomad, Prometheus, Loki) uses the same login, so they work with an encrypted key too.
+- The `phantom-collect` tool has a matching `-ssh-passphrase` option. It defaults to the `PHANTOM_SSH_PASSPHRASE` environment variable, so the secret does not have to appear on the command line.
 
 ### 🔧 Fixes
 
-#### "All clear" shown when connections failed
-- If a scan could not read a connection (for example Docker permission denied, or Kubernetes refusing connections), Overview still showed a green check, "Nothing needs attention" and "all clear", and Incidents said "Suspiciously quiet… Phantom is watching". They now say that no incidents were found but some connections could not be read, so the result may be incomplete.
-
-#### Layout
-- **Narrow window:** the "+" button to add a connection disappeared when the sidebar shrank to icons. It stays now.
-- **Short window:** the lower sidebar entries were squashed on top of "Settings". The connection list now scrolls by itself and Settings stays at the bottom.
-- **Docker dashboard:** image names and ports were broken in the middle of a word (`demo/ap i:1.4`, `8080->8 0/tcp`). They now stay on one line.
-- **Keyboard:** a "Skip to content" link is the first Tab stop, so you do not have to tab through the whole sidebar.
+#### Docker over SSH missed error logs written to stderr
+- Docker over SSH only read what a container wrote to **stdout**. Most programs log errors to **stderr**, so their "N error log line(s)" signal never showed up through SSH. Direct Docker connections were not affected.
+- Both streams are read now. On a real host, Docker through SSH and a direct connection report the same events.
 
 ---
 
 ### 🧪 Internal
-- Checked with a headless browser against a stand-in backend: Settings in wide and narrow windows, the unsaved-changes marker, the jump buttons, empty and failed-scan screens, the skip link, and a basic accessibility check (button names, input labels, image alt text, focus rings).
-- **Not tested:** the real app on Windows and macOS, and real screen-reader use. No backend (Go) code changed in this release.
+- New tests for the parallel Docker collection added in v0.5.2: the limit of 6 at a time, event order, one broken container not hiding the others, and cancellation. New tests for stderr logs and for encrypted keys (right, wrong and missing passphrase, a plain key with a spare passphrase, masking and restoring in the config).
+- Tested against real services before this release:
+  - A real OpenSSH server with ed25519, RSA (both formats) and ECDSA keys, each with the right, a wrong and no passphrase, and with ssh-agent.
+  - Docker, Kubernetes, Nomad, Prometheus and Loki through one SSH host with an encrypted key. The event counts matched a direct connection for each (Docker after the stderr fix), and every dashboard snapshot loaded.
+- **Not tested:** the Settings form with a passphrase key in the real app window (only headless), Docker over SSH with TTY containers, the real app on Windows and macOS.
 
 ---
 
