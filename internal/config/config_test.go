@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -54,5 +55,41 @@ func TestWebhookValidationAndDefaults(t *testing.T) {
 	}
 	if err == nil || !strings.Contains(err.Error(), "https") {
 		t.Errorf("http discord URL not caught: %v", err)
+	}
+}
+
+func TestSSHKeyPassphraseIsMaskedForTheUIAndRestoredOnSave(t *testing.T) {
+	stored := Config{Connections: []Connection{
+		{ID: "h1", Name: "web", Type: TypeSSH, Enabled: true, Addr: "web:22", User: "ops", KeyPath: "/k", Passphrase: "s3cret pass"},
+		{ID: "n1", Name: "nomad", Type: TypeNomad, Enabled: true, URL: "http://x:4646", Token: "tok"},
+	}}
+	ui := stored.Redacted()
+	if ui.Connections[0].Passphrase != SecretMask || ui.Connections[1].Token != SecretMask {
+		t.Fatalf("UI must see masks: %q %q", ui.Connections[0].Passphrase, ui.Connections[1].Token)
+	}
+	if stored.Connections[0].Passphrase != "s3cret pass" {
+		t.Fatal("Redacted must not modify the original")
+	}
+	ui.RestoreSecrets(stored)
+	if ui.Connections[0].Passphrase != "s3cret pass" || ui.Connections[1].Token != "tok" {
+		t.Errorf("masks not restored: %q %q", ui.Connections[0].Passphrase, ui.Connections[1].Token)
+	}
+	// A newly typed passphrase replaces the stored one.
+	edited := stored.Redacted()
+	edited.Connections[0].Passphrase = "new one"
+	edited.RestoreSecrets(stored)
+	if edited.Connections[0].Passphrase != "new one" {
+		t.Errorf("a typed passphrase must win, got %q", edited.Connections[0].Passphrase)
+	}
+	// A mask with no stored connection is cleared.
+	orphan := Config{Connections: []Connection{{ID: "gone", Type: TypeSSH, Passphrase: SecretMask}}}
+	orphan.RestoreSecrets(stored)
+	if orphan.Connections[0].Passphrase != "" {
+		t.Errorf("orphan mask must be cleared, got %q", orphan.Connections[0].Passphrase)
+	}
+	// The passphrase must never appear in the UI copy.
+	b, _ := json.Marshal(stored.Redacted())
+	if strings.Contains(string(b), "s3cret pass") {
+		t.Error("passphrase leaked into the redacted config")
 	}
 }

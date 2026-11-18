@@ -9,6 +9,7 @@ package ssh
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -25,9 +26,12 @@ import (
 type Config struct {
 	Addr string // host:port (port defaults to 22)
 	User string
-	// KeyPath is an unencrypted private key. If empty, the SSH agent
-	// ($SSH_AUTH_SOCK) is used.
+	// KeyPath is a private key file. If empty, the SSH agent ($SSH_AUTH_SOCK)
+	// is used.
 	KeyPath string
+	// Passphrase unlocks KeyPath when the key is encrypted. It is a secret:
+	// never log it or put it in an error message.
+	Passphrase string
 	// KnownHosts is the known_hosts file (default ~/.ssh/known_hosts).
 	KnownHosts string
 	// Insecure disables host key verification. Never use in production.
@@ -308,15 +312,39 @@ func (e *remoteRefused) Error() string {
 	return fmt.Sprintf("the SSH host could not connect to %s: %s", e.addr, e.msg)
 }
 
+// parseKey reads a private key, unlocking it with passphrase when it is
+// encrypted. Errors name the file but never include the passphrase.
+func parseKey(pem []byte, path, passphrase string) (gossh.Signer, error) {
+	signer, err := gossh.ParsePrivateKey(pem)
+	if err == nil {
+		return signer, nil
+	}
+	var missing *gossh.PassphraseMissingError
+	if !errors.As(err, &missing) {
+		return nil, fmt.Errorf("parse key %s: %w", path, err)
+	}
+	if passphrase == "" {
+		return nil, fmt.Errorf("the key %s is protected by a passphrase: enter the passphrase in this connection, or add the key to ssh-agent and leave the key path empty", path)
+	}
+	signer, err = gossh.ParsePrivateKeyWithPassphrase(pem, []byte(passphrase))
+	if err != nil {
+		if errors.Is(err, x509.IncorrectPasswordError) {
+			return nil, fmt.Errorf("the passphrase for key %s is wrong", path)
+		}
+		return nil, fmt.Errorf("unlock key %s: %w", path, err)
+	}
+	return signer, nil
+}
+
 func authMethods(cfg Config) ([]gossh.AuthMethod, func(), error) {
 	if cfg.KeyPath != "" {
 		pem, err := os.ReadFile(cfg.KeyPath)
 		if err != nil {
 			return nil, nil, fmt.Errorf("read key: %w", err)
 		}
-		signer, err := gossh.ParsePrivateKey(pem)
+		signer, err := parseKey(pem, cfg.KeyPath, cfg.Passphrase)
 		if err != nil {
-			return nil, nil, fmt.Errorf("parse key %s (encrypted keys are not supported; use ssh-agent): %w", cfg.KeyPath, err)
+			return nil, nil, err
 		}
 		return []gossh.AuthMethod{gossh.PublicKeys(signer)}, func() {}, nil
 	}

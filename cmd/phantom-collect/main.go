@@ -33,6 +33,7 @@ func main() {
 	sshHost := flag.String("ssh-host", "", "SSH target host[:port]")
 	sshUser := flag.String("ssh-user", os.Getenv("USER"), "SSH user")
 	sshKey := flag.String("ssh-key", "", "SSH private key (default: use ssh-agent)")
+	sshPass := flag.String("ssh-passphrase", os.Getenv("PHANTOM_SSH_PASSPHRASE"), "passphrase of an encrypted SSH key (default: $PHANTOM_SSH_PASSPHRASE)")
 	sshKnown := flag.String("ssh-known-hosts", "", "known_hosts file (default ~/.ssh/known_hosts)")
 	sshInsecure := flag.Bool("ssh-insecure", false, "skip host key verification (testing only)")
 	sshPorts := flag.String("ssh-ports", "", "comma-separated TCP ports expected to be listening")
@@ -52,7 +53,7 @@ func main() {
 	case "nomad":
 		c = nomad.New(*nomadURL, *nomadToken)
 	case "ssh":
-		cfg := sshc.Config{Addr: *sshHost, User: *sshUser, KeyPath: *sshKey,
+		cfg := sshc.Config{Addr: *sshHost, User: *sshUser, KeyPath: *sshKey, Passphrase: *sshPass,
 			KnownHosts: *sshKnown, Insecure: *sshInsecure}
 		for _, p := range strings.Split(*sshPorts, ",") {
 			if p = strings.TrimSpace(p); p == "" {
