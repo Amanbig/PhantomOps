@@ -16,7 +16,8 @@ they become the body of the GitHub Release.
 
 | Version | Type | Highlights | Release notes |
 | :--- | :--- | :--- | :---: |
-| **v0.5.3** | *Current* · Patch release | Settings grouped into Scanning, Alerts, Advanced and App with unsaved-change markers; no more "all clear" when connections failed to scan; layout fixes (narrow and short windows, Docker dashboard table); skip-to-content link | [v0.5.3.md](v0.5.3.md) |
+| **v0.5.4** | *Current* · Patch release | SSH connections accept passphrase-protected private keys (ed25519, ECDSA, RSA); Docker over SSH no longer misses error logs written to stderr; tests for parallel Docker collection | [v0.5.4.md](v0.5.4.md) |
+| **v0.5.3** | Patch release | Settings grouped into Scanning, Alerts, Advanced and App with unsaved-change markers; no more "all clear" when connections failed to scan; layout fixes (narrow and short windows, Docker dashboard table); skip-to-content link | [v0.5.3.md](v0.5.3.md) |
 | **v0.5.2** | Patch release | Built with a patched Go toolchain and updated x/crypto (fixes known vulnerabilities); new vulnerability check on pull requests; incidents no longer merge services that share a name prefix; Docker over SSH about 4x faster | [v0.5.2.md](v0.5.2.md) |
 | **v0.5.1** | Patch release | Fixes a false "host key changed" warning that blocked SSH connections to servers with several host keys; fixes Windows in-app updates that failed with a permission error (the app now closes itself after the installer starts) | [v0.5.1.md](v0.5.1.md) |
 | **v0.5.0** | Minor release | Kubernetes, Nomad, Prometheus and Loki through SSH (read-only); check and trust an SSH server's host key from the app; nothing is connected by default on a fresh install; report buttons on Incidents; webhook delivery history in Activity | [v0.5.0.md](v0.5.0.md) |
