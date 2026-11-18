@@ -92,3 +92,46 @@ func TestDockerByteParsing(t *testing.T) {
 		}
 	}
 }
+
+// stderrRemote answers `docker logs` the way the real CLI does: what the
+// container wrote to stdout goes to the CLI's stdout, and what it wrote to
+// stderr (where most programs log errors) goes to the CLI's stderr.
+type stderrRemote struct{ stdout, stderr string }
+
+func (s stderrRemote) Run(_ context.Context, command string) (string, string, int, error) {
+	if strings.Contains(command, "'logs'") {
+		return s.stdout, s.stderr, 0, nil
+	}
+	return "", "", 1, nil
+}
+
+func TestRemoteLogsIncludeWhatTheContainerWroteToStderr(t *testing.T) {
+	cases := []struct {
+		name           string
+		stdout, stderr string
+		want           []string
+	}{
+		{"errors only on stderr (the common case)", "starting up\nlistening on :8080\n", "level=error msg=\"db unreachable\"\nFATAL: giving up\n", []string{"db unreachable", "giving up"}},
+		{"errors on both streams", "ERROR from stdout\n", "ERROR from stderr\n", []string{"from stdout", "from stderr"}},
+		{"stdout without trailing newline", "ERROR no newline", "ERROR second\n", []string{"no newline", "second"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Collector{api: newRemoteAPIClient(stderrRemote{tc.stdout, tc.stderr}, ""), now: func() time.Time { return time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC) }}
+			events := c.logEvents(context.Background(), "abc123", "api", false, time.Time{})
+			if len(events) != 1 {
+				t.Fatalf("want one error-log event, got %+v", events)
+			}
+			// Two separate error lines in every case: a missing newline between
+			// the two streams would glue them into one.
+			if !strings.Contains(events[0].Title, "2 error log line(s)") {
+				t.Errorf("want 2 separate error lines, title is %q", events[0].Title)
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(events[0].Detail, w) {
+					t.Errorf("missing %q in %q", w, events[0].Detail)
+				}
+			}
+		})
+	}
+}
