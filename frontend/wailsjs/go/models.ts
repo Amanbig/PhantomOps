@@ -79,6 +79,7 @@ export namespace config {
 	    addr: string;
 	    user: string;
 	    keyPath: string;
+	    passphrase: string;
 	    knownHosts: string;
 	    insecure: boolean;
 	    expectedPorts: number[];
@@ -105,6 +106,7 @@ export namespace config {
 	        this.addr = source["addr"];
 	        this.user = source["user"];
 	        this.keyPath = source["keyPath"];
+	        this.passphrase = source["passphrase"];
 	        this.knownHosts = source["knownHosts"];
 	        this.insecure = source["insecure"];
 	        this.expectedPorts = source["expectedPorts"];

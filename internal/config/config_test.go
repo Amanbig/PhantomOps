@@ -58,6 +58,30 @@ func TestWebhookValidationAndDefaults(t *testing.T) {
 	}
 }
 
+// The UI adds a connection with list.push(...). An empty list must reach it as
+// [] and not null, or every "Add" button throws and does nothing on a fresh
+// install (nothing is connected by default).
+func TestRedactedListsAreNeverNullForTheUI(t *testing.T) {
+	loaded, _, _ := Load(t.TempDir() + "/missing.json")
+	normalized := Config{}
+	normalized.Normalize()
+	for name, cfg := range map[string]Config{"zero value": {}, "normalized": normalized, "loaded, no file": loaded} {
+		b, err := json.Marshal(cfg.Redacted())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(b, &m); err != nil {
+			t.Fatal(err)
+		}
+		for _, k := range []string{"connections", "webhooks", "ignoreSubjects"} {
+			if v, ok := m[k]; !ok || v == nil {
+				t.Errorf("%s: %q reaches the UI as %v, want []", name, k, v)
+			}
+		}
+	}
+}
+
 func TestSSHKeyPassphraseIsMaskedForTheUIAndRestoredOnSave(t *testing.T) {
 	stored := Config{Connections: []Connection{
 		{ID: "h1", Name: "web", Type: TypeSSH, Enabled: true, Addr: "web:22", User: "ops", KeyPath: "/k", Passphrase: "s3cret pass"},
