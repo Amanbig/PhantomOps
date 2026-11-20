@@ -116,9 +116,22 @@ export async function mountConnections(el, {focusId = '', add = false} = {}) {
     await refresh();
 }
 
+// withLists makes sure the lists the UI adds to exist. Go sends null for an
+// empty list, and null.push(...) throws, which silently killed every "Add"
+// button on a fresh install.
+function withLists(settings) {
+    const c = settings && settings.config;
+    if (c) {
+        c.connections = c.connections || [];
+        c.webhooks = c.webhooks || [];
+        c.ignoreSubjects = c.ignoreSubjects || [];
+    }
+    return settings;
+}
+
 async function refresh() {
     try {
-        state.settings = await GetSettings();
+        state.settings = withLists(await GetSettings());
         state.error = '';
         state.scanHealth = scanHealth(await LastResult().catch(() => null));
         state.appVersion = await GetAppVersion().catch(() => state.appVersion);
@@ -157,7 +170,7 @@ function toast(msg) {
 }
 
 function cloneConfig() {
-    return JSON.parse(JSON.stringify(state.settings.config));
+    return withLists({config: JSON.parse(JSON.stringify(state.settings.config))}).config;
 }
 
 function summary(c) {

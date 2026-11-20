@@ -583,7 +583,11 @@ func (c Config) Engine() (*engine.Engine, []string) {
 // Redacted returns a copy with secrets masked, safe to send to the UI.
 func (c Config) Redacted() Config {
 	out := c
-	out.Connections = append([]Connection(nil), c.Connections...)
+	// Lists are never nil here: nil is sent to the UI as null, and the UI adds
+	// to them with push(), which throws on null (every "Add" button was dead on
+	// a fresh install with nothing connected).
+	out.Connections = append([]Connection{}, c.Connections...)
+	out.IgnoreSubjects = append([]string{}, c.IgnoreSubjects...)
 	for i := range out.Connections {
 		if out.Connections[i].Token != "" {
 			out.Connections[i].Token = SecretMask
@@ -595,7 +599,7 @@ func (c Config) Redacted() Config {
 	if out.AI.APIKey != "" {
 		out.AI.APIKey = SecretMask
 	}
-	out.Webhooks = append([]notify.Channel(nil), c.Webhooks...)
+	out.Webhooks = append([]notify.Channel{}, c.Webhooks...)
 	for i := range out.Webhooks {
 		if out.Webhooks[i].URL != "" {
 			out.Webhooks[i].URL = SecretMask
