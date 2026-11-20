@@ -8,7 +8,7 @@ Thanks for helping. Bug reports, ideas, docs and code are all welcome.
 - Security problems: see [SECURITY.md](SECURITY.md), do not open a public issue.
 
 ## Development
-Needs Go 1.25+, Node 20+ and [Wails v2](https://wails.io). On Linux also GTK 3 and WebKitGTK 4.1 (development packages) and the `webkit2_41` build tag. macOS and Windows do not use that tag; see the README's Development section.
+Needs Go 1.26+, Node 20+ and [Wails v2](https://wails.io). On Linux also GTK 3 and WebKitGTK 4.1 (development packages) and the `webkit2_41` build tag. macOS and Windows do not use that tag; see the README's Development section.
 
 ```
 wails dev -tags webkit2_41      # run the app with hot reload (Linux; on macOS/Windows: wails dev)

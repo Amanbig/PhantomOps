@@ -5,6 +5,19 @@ Your infrastructure is haunted. Find out what's killing it.
 PhantomOps connects to Docker, Kubernetes, Nomad, Prometheus, Loki and SSH hosts, correlates what it
 sees into incident timelines, and proposes a root cause.
 
+## Principles
+
+- **Read-only by default.** Collectors only read. SSH uses an allowlist of read-only commands and checks the
+  server's host key against `known_hosts`.
+- **Rollbacks are opt-in.** They are off by default. When enabled, each one shows a preview of what changes,
+  needs you to type the workload name, and is written to the audit log (**Activity**).
+- **AI is optional and off by default.** The root cause is rule-based first. An optional model (Ollama or any
+  OpenAI-compatible endpoint) can only cite events that were actually collected.
+- **Secrets stay on your machine.** Tokens, key passphrases and webhook URLs are masked in the UI and kept in a
+  config file only you can read.
+- **Honest about gaps.** If a connection could not be read in a scan, the results are marked incomplete
+  instead of showing "all clear".
+
 ## Install
 
 Download the latest build from [GitHub Releases](https://github.com/Amanbig/PhantomOps/releases/latest):
@@ -16,7 +29,7 @@ Download the latest build from [GitHub Releases](https://github.com/Amanbig/Phan
 | macOS | `phantomops-darwin-universal.dmg` or `.zip` (Intel and Apple Silicon) |
 
 Each release has a `SHA256SUMS` file (`sha256sum -c SHA256SUMS`). PhantomOps checks for new versions
-(Connections → About & updates; can be turned off) and installs them in place after verifying the
+(Settings → About & updates; can be turned off) and installs them in place after verifying the
 checksum. Release notes for every version are kept in [`releases/`](releases/README.md).
 
 ## Connecting services
@@ -40,6 +53,10 @@ SSH connection per server:
 
 This is monitoring only: rollbacks are never performed through SSH, and a connection that is set to use SSH
 never falls back to connecting directly.
+
+**Signing in.** An SSH connection uses a private key file, or `ssh-agent` when the key path is empty. For an
+encrypted key, fill in **Key passphrase**: it is kept in the owner-only config file (like tokens) and masked in
+the UI. If you would rather not store it, leave the key path empty and add the key to `ssh-agent`.
 
 **Trusting a new server.** SSH connections verify the server against `known_hosts` and refuse unknown hosts.
 In the SSH connection form, **Check host key** reads the server's key without logging in (no credential is
@@ -86,7 +103,7 @@ Nomad, SSH) for exercising each collector.
 
 ## Development
 
-You need Go 1.25+, Node 20+ and [Wails v2](https://wails.io/docs/gettingstarted/installation) (`wails doctor`
+You need Go 1.26+, Node 20+ and [Wails v2](https://wails.io/docs/gettingstarted/installation) (`wails doctor`
 checks your setup).
 
 | Platform | Run with live reload | Local build | Extra requirements |
@@ -104,6 +121,7 @@ from those platforms are especially welcome.
 
 ```sh
 python3 scripts/icons.py      # regenerate all icons after editing build/appicon*.svg
+python3 dev/ui/shot.py        # headless screenshots of every view against a stand-in backend (see dev/ui/README.md)
 ```
 
 Before committing (CI runs these and a few more on every pull request; on macOS and Windows leave out `-tags webkit2_41`):
@@ -121,7 +139,7 @@ go test ./internal/...
 2. `./scripts/release.sh vX.Y.Z`: sets the version in `wails.json` and archives the notes in `releases/`.
 3. Merge that in a PR, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
 
-[Checks](.github/workflows/checks.yml) (gofmt, vet, tests, frontend and app build, release metadata) run on
+[Checks](.github/workflows/checks.yml) (gofmt, vet, tests, frontend and app build, a `govulncheck` vulnerability scan, release metadata) run on
 pull requests. The [release workflow](.github/workflows/release.yml) runs only for version tags and just builds
 and publishes: Linux, Windows and macOS packages, `SHA256SUMS`, and a GitHub Release with `RELEASE_NOTES.md` as
 its description. It refuses a tag that does not match the version in `wails.json`.
